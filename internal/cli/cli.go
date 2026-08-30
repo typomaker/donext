@@ -50,6 +50,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	root.SetOutput(stderr)
 	once := root.Bool("once", false, "run exactly one roadmap step")
 	dryRun := root.Bool("dry-run", false, "show the concrete launch without starting Codex")
+	var verbose bool
+	root.BoolVar(&verbose, "v", false, "show model requests and label request/response output")
+	root.BoolVar(&verbose, "verbose", false, "show model requests and label request/response output")
 	approvalPolicy := root.String("approval-policy", "never", "Codex approval policy: never, on-request, or untrusted")
 	sandbox := root.String("sandbox", "workspace-write", "Codex sandbox: read-only, workspace-write, or danger-full-access")
 	weeklyUsageBudget := root.Int("weekly-usage-budget", 0, "weekly quota percentage points available to this run")
@@ -86,7 +89,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "--prompt: %v\n", err)
 		return 2
 	}
-	return runCommand(runOptions{once: *once, dryRun: *dryRun, approvalPolicy: *approvalPolicy, sandbox: *sandbox, weeklyUsageBudget: *weeklyUsageBudget, prompt: prompt}, stdout, stderr)
+	return runCommand(runOptions{once: *once, dryRun: *dryRun, verbose: verbose, approvalPolicy: *approvalPolicy, sandbox: *sandbox, weeklyUsageBudget: *weeklyUsageBudget, prompt: prompt}, stdout, stderr)
 }
 
 func flagWasSet(flags *flag.FlagSet, name string) bool {
@@ -192,7 +195,7 @@ func lockLabel(locked bool) string {
 }
 
 type runOptions struct {
-	once, dryRun            bool
+	once, dryRun, verbose   bool
 	approvalPolicy, sandbox string
 	weeklyUsageBudget       int
 	prompt                  string
@@ -200,6 +203,7 @@ type runOptions struct {
 
 type projectSpec struct {
 	ID, Name, Repository, Prompt, ApprovalPolicy, Sandbox string
+	Verbose                                               bool
 }
 
 const defaultTaskPrompt = "Выполни первый незавершённый шаг из ROADMAP.md полностью. За этот запуск выполни ровно один шаг."
@@ -214,7 +218,7 @@ func runCommand(options runOptions, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "identify project: %v\n", err)
 		return 1
 	}
-	project := projectSpec{ID: identity.ID, Name: identity.Name, Repository: identity.Repository, Prompt: options.prompt, ApprovalPolicy: options.approvalPolicy, Sandbox: options.sandbox}
+	project := projectSpec{ID: identity.ID, Name: identity.Name, Repository: identity.Repository, Prompt: options.prompt, ApprovalPolicy: options.approvalPolicy, Sandbox: options.sandbox, Verbose: options.verbose}
 	if options.dryRun {
 		fmt.Fprintf(stdout, "project: %s\nrepository: %s\ncommand: codex app-server --stdio\napproval_policy: %s\nsandbox: %s\nonce: %t\nprompt:\n%s", project.Name, project.Repository, project.ApprovalPolicy, project.Sandbox, options.once, project.Prompt)
 		return 0
@@ -367,6 +371,9 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 	if err := revealDesktopThread(threadID); err != nil {
 		fmt.Fprintf(stderr, "warning: reveal thread %s in Codex Desktop: %v\n", threadID, err)
 	}
+	if project.Verbose {
+		printModelMessage(stderr, "request", project.Prompt)
+	}
 	turnID, err := client.StartTurn(ctx, threadID, project.Prompt)
 	if err != nil {
 		_ = store.Write(state.State{Project: projectID, Status: "failed", ThreadID: threadID})
@@ -442,9 +449,17 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 			if event.Kind == codex.AgentMessageCompleted {
 				finalOutput = event.Text
 				if visible := visibleModelOutput(event.Text); visible != "" {
-					fmt.Fprintf(stderr, "model response:\n%s\n", visible)
+					label := ""
+					if project.Verbose {
+						label = "response"
+					}
+					printModelMessage(stderr, label, visible)
 				} else {
-					fmt.Fprintln(stderr, "model response completed (no visible output)")
+					label := ""
+					if project.Verbose {
+						label = "response"
+					}
+					printModelMessage(stderr, label, "[response completed with no visible output]")
 				}
 				continue
 			}
@@ -484,6 +499,21 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 			}
 			return status, false
 		}
+	}
+}
+
+func printModelMessage(w io.Writer, label, message string) {
+	if label != "" {
+		fmt.Fprintf(w, "%s:\n", label)
+	}
+	message = strings.ReplaceAll(message, "\r\n", "\n")
+	message = strings.TrimSuffix(message, "\n")
+	for _, line := range strings.Split(message, "\n") {
+		if line == "" {
+			fmt.Fprintln(w, ">")
+			continue
+		}
+		fmt.Fprintf(w, "> %s\n", line)
 	}
 }
 
@@ -587,10 +617,12 @@ func warnGitState(repository string, stderr io.Writer) {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "usage: donext [--once|--dry-run] [--prompt TEXT|@FILE|-] [--approval-policy POLICY] [--sandbox MODE] [--weekly-usage-budget N]")
+	fmt.Fprintln(w, "usage: donext [--once|--dry-run] [-v|--verbose] [--prompt TEXT|@FILE|-] [--approval-policy POLICY] [--sandbox MODE] [--weekly-usage-budget N]")
 	fmt.Fprintln(w, "       donext status")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "options:")
+	fmt.Fprintln(w, "  -v, --verbose")
+	fmt.Fprintln(w, "      show labeled model requests and responses")
 	fmt.Fprintln(w, "  --approval-policy POLICY")
 	fmt.Fprintln(w, "      never (default), on-request, untrusted")
 	fmt.Fprintln(w, "  --sandbox MODE")

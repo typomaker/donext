@@ -28,7 +28,8 @@ one succeeds.
 ## MVP scope
 
 The MVP includes `donext` from the current directory; `--once`, `--dry-run`,
-`--prompt TEXT|@FILE|-`, and `--weekly-usage-budget N`; `donext status`; one App
+`--prompt TEXT|@FILE|-`, `-v`/`--verbose`, and `--weekly-usage-budget N`;
+`donext status`; one App
 Server per process; one persisted thread per goal; real terminal-event waiting;
 stopping on no-work, failure, or interruption; independent project locks;
 state/recovery; tests; and documentation.
@@ -50,6 +51,16 @@ These are outside the MVP until explicitly moved into "Current steps":
 - packaging and release automation.
 
 ## Step history
+
+### ORCH-029 — Clarify terminal request and response output
+
+- Completed: 2026-08-30.
+- Result: normal live output now hides model requests, removes the legacy
+  `model response:` label, and prefixes every response line with `>`. Added
+  `-v`/`--verbose` aliases for labeled request and response blocks while keeping
+  lifecycle state and logs metadata-only. Updated README and changelog. Checks:
+  focused CLI race tests; full race tests; full tests; vet; build; help output;
+  and diff check.
 
 ### ORCH-028 — Keep recovered prior work in one thread
 

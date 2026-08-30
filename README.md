@@ -78,7 +78,7 @@ Codex to complete exactly the first unfinished step. Codex discovers applicable
 ## Commands and modes
 
 ```text
-donext [--once|--dry-run] [--prompt TEXT|@FILE|-]
+donext [--once|--dry-run] [-v|--verbose] [--prompt TEXT|@FILE|-]
        [--approval-policy POLICY] [--sandbox MODE]
        [--weekly-usage-budget N]
 donext status
@@ -98,6 +98,7 @@ donext --prompt @prompt.md
 printf 'Complete step ORCH-123\n' | donext --prompt -
 donext --approval-policy never --sandbox workspace-write
 donext --weekly-usage-budget 5
+donext -v                      # show labeled model requests and responses
 donext status
 ```
 
@@ -188,14 +189,17 @@ ambiguous, reset, or anomalous weekly-window data fails closed.
 ### Live session output and token usage
 
 While a goal runs, `donext` reports new thread and turn IDs and prints each
-completed model message to the terminal. When the turn ends, it prints input,
+completed model message to the terminal with every line prefixed by `>`. The
+prompt is hidden and responses have no label by default. With `-v` or
+`--verbose`, both sides are printed as explicitly labeled `request:` and
+`response:` blocks. When the turn ends, the CLI prints input,
 cached input, output, reasoning, and total token counts. When App Server supplies
 a model context window, it also prints the latest request's context tokens and
 percentage used. Model messages are terminal-only and are never copied into
 state or lifecycle logs. Standalone orchestrator control markers are hidden from
 the terminal model output and are consumed only by the final-response handler.
 If removing those markers leaves no visible response, the CLI prints
-`model response completed (no visible output)` to confirm that the model turn
+`> [response completed with no visible output]` to confirm that the model turn
 did finish.
 
 ## Project state, locking, and recovery

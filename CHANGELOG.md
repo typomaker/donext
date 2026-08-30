@@ -7,6 +7,12 @@ after its first release.
 
 ## [Unreleased]
 
+### Changed
+
+- Hide model requests and remove the `model response:` label in normal output;
+  prefix response lines with `>` and add `-v`/`--verbose` labeled request and
+  response blocks.
+
 ### Fixed
 
 - Keep recovery of clearly unfinished prior-step work as the thread's sole goal

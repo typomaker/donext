@@ -438,6 +438,9 @@ func TestCustomPromptReachesTurnButNotLifecycleLog(t *testing.T) {
 	if fake.prompt != composePrompt(secretPrompt) {
 		t.Fatalf("prompt=%q", fake.prompt)
 	}
+	if strings.Contains(stderr.String(), secretPrompt) {
+		t.Fatalf("prompt leaked into normal terminal output: %q", stderr.String())
+	}
 	for _, want := range []string{"единственной задачей текущего треда", "не начинай следующий roadmap-шаг", "канонического корня проекта", "пути относительно этой директории", "диагностируй причину", "повтори релевантную проверку", "внешнего блокера"} {
 		if !strings.Contains(fake.prompt, want) {
 			t.Fatalf("prompt lacks repair contract %q: %q", want, fake.prompt)
@@ -679,14 +682,35 @@ func TestRunPrintsSessionProgressModelResponseAndUsage(t *testing.T) {
 	if code := Run(runArgs(t, "--once"), &stdout, &stderr); code != 0 {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	for _, want := range []string{"starting new Codex session", "session started: thread=thread-123", "model turn started: turn=turn-456", "model response:\nimplemented the step"} {
+	for _, want := range []string{"starting new Codex session", "session started: thread=thread-123", "model turn started: turn=turn-456", "> implemented the step\n"} {
 		if !strings.Contains(stderr.String(), want) {
 			t.Fatalf("stderr=%q missing %q", stderr.String(), want)
 		}
 	}
+	if strings.Contains(stderr.String(), "model response:") {
+		t.Fatalf("legacy response prefix remains: %q", stderr.String())
+	}
 	for _, want := range []string{"input_tokens: 200", "cached_input_tokens: 50", "output_tokens: 50", "total_tokens: 250", "context_window: 1000", "context_used_percent: 25.0"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("stdout=%q missing %q", stdout.String(), want)
+		}
+	}
+}
+
+func TestRunVerbosePrintsLabeledRequestAndMultilineResponse(t *testing.T) {
+	fake := &fakeCodex{events: make(chan codex.Event, 2)}
+	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "first line\n\nthird line"}
+	fake.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: "thread-123", TurnID: "turn-456", Status: "completed"}
+	close(fake.events)
+	withFakeCodex(t, fake)
+
+	var stdout, stderr bytes.Buffer
+	if code := Run(runArgs(t, "--once", "-v", "--prompt", "VERBOSE_REQUEST"), &stdout, &stderr); code != 0 {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+	for _, want := range []string{"request:\n> VERBOSE_REQUEST\n", "response:\n> first line\n>\n> third line\n"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Fatalf("stderr=%q missing %q", stderr.String(), want)
 		}
 	}
 }
@@ -748,7 +772,7 @@ func TestRunOnceRecognizesNoWorkOnlyInFinalAgentOutput(t *testing.T) {
 	if code != 0 || !strings.Contains(stdout.String(), "status: no_work\n") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	if strings.Contains(stderr.String(), "ORCHESTRATOR_NO_WORK") || !strings.Contains(stderr.String(), "model response completed (no visible output)") {
+	if strings.Contains(stderr.String(), "ORCHESTRATOR_NO_WORK") || !strings.Contains(stderr.String(), "> [response completed with no visible output]") {
 		t.Fatalf("control-only response leaked to terminal: %q", stderr.String())
 	}
 }
@@ -768,7 +792,7 @@ func TestRunBlockedStopsContinuousExecutionAndLogsMetadata(t *testing.T) {
 	if code != 1 || fake.threadStarts != 1 || !strings.Contains(stdout.String(), "status: blocked\n") {
 		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
 	}
-	if strings.Contains(stderr.String(), "ORCHESTRATOR_BLOCKED") || !strings.Contains(stderr.String(), "model response:\nloopback is unavailable") {
+	if strings.Contains(stderr.String(), "ORCHESTRATOR_BLOCKED") || !strings.Contains(stderr.String(), "> loopback is unavailable") {
 		t.Fatalf("blocked response was not filtered: %q", stderr.String())
 	}
 	current, err := state.New(state.ProjectDir(identity.Repository)).Read(identity.ID)
