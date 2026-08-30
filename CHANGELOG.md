@@ -9,6 +9,8 @@ after its first release.
 
 ### Changed
 
+- Suppress raw App Server stderr in normal output while retaining it with
+  `-v`/`--verbose`; actionable errors emitted by `donext` remain visible.
 - Replace verbose request/response text labels with directional `<` and `>`
   markers. Mark system statistics with `=` and compact token/context and weekly
   usage into one line outside verbose mode.

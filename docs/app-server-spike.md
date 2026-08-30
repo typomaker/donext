@@ -28,7 +28,9 @@ Minimal handshake:
 4. Send normal requests after initialization completes.
 
 The transport must read stdout and stderr concurrently. Stdout is reserved for
-protocol messages; diagnostic JSON logs and warnings arrive on stderr.
+protocol messages; diagnostic JSON logs and warnings arrive on stderr. The CLI
+drains and discards those raw diagnostics by default and copies them to the
+terminal only in verbose mode.
 
 ## Confirmed lifecycle
 

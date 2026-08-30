@@ -52,6 +52,15 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-037 — Hide App Server diagnostics outside verbose mode
+
+- Completed: 2026-08-30.
+- Result: raw App Server stderr is now drained but suppressed in normal terminal
+  output and remains available with `-v`/`--verbose`. Actionable errors emitted
+  by `donext` itself stay visible in every mode. Updated the README, protocol
+  notes, changelog, and CLI coverage. Checks: focused CLI/Codex race tests; full
+  race tests; vet; build; and diff check.
+
 ### ORCH-036 — Use directional model markers and compact system status
 
 - Completed: 2026-08-30.

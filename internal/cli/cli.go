@@ -271,7 +271,11 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 		return 1
 	}
 	warnGitState(project.Repository, stderr)
-	client, err := startCodex(ctx, command, stderr)
+	appServerStderr := io.Discard
+	if project.Verbose {
+		appServerStderr = stderr
+	}
+	client, err := startCodex(ctx, command, appServerStderr)
 	if err != nil {
 		_ = store.Write(state.State{Project: projectID, Status: "failed"})
 		logLifecycle(store, stderr, projectID, "app-server", "start_failed", nil)

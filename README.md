@@ -197,9 +197,12 @@ does not expose the model's private chain of thought; the reasoning output is
 the summary supplied by the protocol. When the turn ends, system statistics use
 the `=` marker. Normal output combines token counts and context use on one line;
 verbose output prints each field on its own marked line. Weekly usage follows
-the same compact/expanded convention. Model messages and live activity are terminal-only and are
-never copied into state or lifecycle logs. Standalone orchestrator control markers are hidden from
-the terminal model output and are consumed only by the final-response handler.
+the same compact/expanded convention. Raw App Server diagnostics are suppressed
+in normal output and are available with `-v` or `--verbose`; actionable errors
+reported by `donext` remain visible in both modes. Model messages and live
+activity are terminal-only and are never copied into state or lifecycle logs.
+Standalone orchestrator control markers are hidden from the terminal model
+output and are consumed only by the final-response handler.
 If removing those markers leaves no visible response, the CLI prints
 `> [response completed with no visible output]` to confirm that the model turn
 did finish.

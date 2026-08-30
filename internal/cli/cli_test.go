@@ -928,6 +928,41 @@ func TestRunOnceStartFailureStillPrintsTerminalFields(t *testing.T) {
 	}
 }
 
+func TestRunShowsAppServerDiagnosticsOnlyWhenVerbose(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		args    []string
+		visible bool
+	}{
+		{name: "normal", args: []string{"--once"}},
+		{name: "verbose", args: []string{"--once", "--verbose"}, visible: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := &fakeCodex{events: make(chan codex.Event, 2), outcomes: []string{"completed"}}
+			old := startCodex
+			startCodex = func(_ context.Context, _ string, diagnostics io.Writer) (codex.Client, error) {
+				fmt.Fprintln(diagnostics, "raw app-server diagnostic")
+				return fake, nil
+			}
+			oldReveal := revealDesktopThread
+			revealDesktopThread = func(string) error { return nil }
+			t.Cleanup(func() {
+				startCodex = old
+				revealDesktopThread = oldReveal
+			})
+
+			var stdout, stderr bytes.Buffer
+			code := Run(runArgs(t, tt.args...), &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+			}
+			if got := strings.Contains(stderr.String(), "raw app-server diagnostic"); got != tt.visible {
+				t.Fatalf("diagnostic visible=%t, want %t; stderr=%q", got, tt.visible, stderr.String())
+			}
+		})
+	}
+}
+
 func TestWarnGitStateReportsDirtyRepository(t *testing.T) {
 	dir := t.TempDir()
 	if err := exec.Command("git", "-C", dir, "init", "--quiet").Run(); err != nil {
