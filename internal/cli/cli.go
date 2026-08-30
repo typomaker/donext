@@ -51,8 +51,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	once := root.Bool("once", false, "run exactly one Codex session")
 	dryRun := root.Bool("dry-run", false, "show the concrete launch without starting Codex")
 	var verbose bool
-	root.BoolVar(&verbose, "v", false, "show session lifecycle and label model messages")
-	root.BoolVar(&verbose, "verbose", false, "show session lifecycle and label model messages")
+	root.BoolVar(&verbose, "v", false, "show session lifecycle, requests, and expanded system status")
+	root.BoolVar(&verbose, "verbose", false, "show session lifecycle, requests, and expanded system status")
 	approvalPolicy := root.String("approval-policy", "never", "Codex approval policy: never, on-request, or untrusted")
 	sandbox := root.String("sandbox", "workspace-write", "Codex sandbox: read-only, workspace-write, or danger-full-access")
 	weeklyUsageBudget := root.Int("weekly-usage-budget", 0, "weekly quota percentage points available to this run")
@@ -390,7 +390,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 		fmt.Fprintf(stderr, "warning: reveal thread %s in Codex Desktop: %v\n", threadID, err)
 	}
 	if project.Verbose {
-		printModelMessage(stderr, "request", project.Prompt)
+		printMarkedMessage(stderr, '<', project.Prompt)
 	}
 	turnID, err := client.StartTurn(ctx, threadID, project.Prompt)
 	if err != nil {
@@ -469,17 +469,9 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 			if event.Kind == codex.AgentMessageCompleted {
 				finalOutput = event.Text
 				if visible := visibleModelOutput(event.Text); visible != "" {
-					label := ""
-					if project.Verbose {
-						label = "response"
-					}
-					printModelMessage(stderr, label, visible)
+					printMarkedMessage(stderr, '>', visible)
 				} else {
-					label := ""
-					if project.Verbose {
-						label = "response"
-					}
-					printModelMessage(stderr, label, "[response completed with no visible output]")
+					printMarkedMessage(stderr, '>', "[response completed with no visible output]")
 				}
 				continue
 			}
@@ -527,27 +519,12 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 			}
 			logLifecycle(store, stderr, projectID, "turn", lifecycleEvent, map[string]string{"thread": threadID, "turn": turnID, "status": status})
 			printTerminal(stdout, projectName, threadID, status)
-			printUsageSummary(ctx, client, tokenUsage, weeklyBaseline, weeklyBudget, stdout, stderr)
+			printUsageSummary(ctx, client, tokenUsage, weeklyBaseline, weeklyBudget, project.Verbose, stdout, stderr)
 			if status == "completed" || status == "no_work" {
 				return status, true
 			}
 			return status, false
 		}
-	}
-}
-
-func printModelMessage(w io.Writer, label, message string) {
-	if label != "" {
-		fmt.Fprintf(w, "> %s:\n", label)
-	}
-	message = strings.ReplaceAll(message, "\r\n", "\n")
-	message = strings.TrimSuffix(message, "\n")
-	for _, line := range strings.Split(message, "\n") {
-		if line == "" {
-			fmt.Fprintln(w, ">")
-			continue
-		}
-		fmt.Fprintf(w, "> %s\n", line)
 	}
 }
 
@@ -574,15 +551,21 @@ func revealThreadInDesktop(threadID string) error {
 	return exec.Command("open", "-g", "codex://threads/"+threadID).Run()
 }
 
-func printUsageSummary(ctx context.Context, client codex.Client, usage *codex.Event, weeklyBaseline *codex.RateLimitWindow, weeklyBudget int, stdout, stderr io.Writer) {
+func printUsageSummary(ctx context.Context, client codex.Client, usage *codex.Event, weeklyBaseline *codex.RateLimitWindow, weeklyBudget int, verbose bool, stdout, stderr io.Writer) {
 	if usage != nil {
-		fmt.Fprintf(stdout, "input_tokens: %d\ncached_input_tokens: %d\noutput_tokens: %d\nreasoning_output_tokens: %d\ntotal_tokens: %d\n", usage.TotalUsage.InputTokens, usage.TotalUsage.CachedInputTokens, usage.TotalUsage.OutputTokens, usage.TotalUsage.ReasoningOutputTokens, usage.TotalUsage.TotalTokens)
-		if usage.ContextWindow != nil && *usage.ContextWindow > 0 {
-			contextTokens := usage.LastUsage.TotalTokens
-			fmt.Fprintf(stdout, "context_tokens: %d\ncontext_window: %d\ncontext_used_percent: %.1f\n", contextTokens, *usage.ContextWindow, float64(contextTokens)*100/float64(*usage.ContextWindow))
+		contextTokens := usage.LastUsage.TotalTokens
+		if verbose {
+			fmt.Fprintf(stdout, "= input_tokens: %d\n= cached_input_tokens: %d\n= output_tokens: %d\n= reasoning_output_tokens: %d\n= total_tokens: %d\n", usage.TotalUsage.InputTokens, usage.TotalUsage.CachedInputTokens, usage.TotalUsage.OutputTokens, usage.TotalUsage.ReasoningOutputTokens, usage.TotalUsage.TotalTokens)
+			if usage.ContextWindow != nil && *usage.ContextWindow > 0 {
+				fmt.Fprintf(stdout, "= context_tokens: %d\n= context_window: %d\n= context_used_percent: %.1f\n", contextTokens, *usage.ContextWindow, float64(contextTokens)*100/float64(*usage.ContextWindow))
+			}
+		} else if usage.ContextWindow != nil && *usage.ContextWindow > 0 {
+			fmt.Fprintf(stdout, "= tokens input=%d cached=%d output=%d reasoning=%d total=%d context=%d/%d (%.1f%%)\n", usage.TotalUsage.InputTokens, usage.TotalUsage.CachedInputTokens, usage.TotalUsage.OutputTokens, usage.TotalUsage.ReasoningOutputTokens, usage.TotalUsage.TotalTokens, contextTokens, *usage.ContextWindow, float64(contextTokens)*100/float64(*usage.ContextWindow))
+		} else {
+			fmt.Fprintf(stdout, "= tokens input=%d cached=%d output=%d reasoning=%d total=%d context=unavailable\n", usage.TotalUsage.InputTokens, usage.TotalUsage.CachedInputTokens, usage.TotalUsage.OutputTokens, usage.TotalUsage.ReasoningOutputTokens, usage.TotalUsage.TotalTokens)
 		}
 	} else {
-		fmt.Fprintln(stdout, "token_usage: unavailable")
+		fmt.Fprintln(stdout, "= token_usage: unavailable")
 	}
 	if weeklyBaseline == nil || weeklyBudget == 0 {
 		return
@@ -602,7 +585,11 @@ func printUsageSummary(ctx context.Context, client codex.Client, usage *codex.Ev
 	if remaining < 0 {
 		remaining = 0
 	}
-	fmt.Fprintf(stdout, "weekly_usage_baseline: %d\nweekly_usage_current: %d\nweekly_budget_consumed: %d\nweekly_budget: %d\nweekly_budget_remaining: %d\n", weeklyBaseline.UsedPercent, current.UsedPercent, delta, weeklyBudget, remaining)
+	if verbose {
+		fmt.Fprintf(stdout, "= weekly_usage_baseline: %d\n= weekly_usage_current: %d\n= weekly_budget_consumed: %d\n= weekly_budget: %d\n= weekly_budget_remaining: %d\n", weeklyBaseline.UsedPercent, current.UsedPercent, delta, weeklyBudget, remaining)
+	} else {
+		fmt.Fprintf(stdout, "= weekly_usage baseline=%d current=%d consumed=%d budget=%d remaining=%d\n", weeklyBaseline.UsedPercent, current.UsedPercent, delta, weeklyBudget, remaining)
+	}
 }
 
 func logLifecycle(store *state.Store, stderr io.Writer, project, component, event string, fields map[string]string) {
@@ -672,7 +659,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "options:")
 	fmt.Fprintln(w, "  -v, --verbose")
-	fmt.Fprintln(w, "      show session lifecycle and label model messages")
+	fmt.Fprintln(w, "      show session lifecycle, requests, and expanded system status")
 	fmt.Fprintln(w, "  --approval-policy POLICY")
 	fmt.Fprintln(w, "      never (default), on-request, untrusted")
 	fmt.Fprintln(w, "  --sandbox MODE")

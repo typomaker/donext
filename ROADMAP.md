@@ -52,6 +52,16 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-036 — Use directional model markers and compact system status
+
+- Completed: 2026-08-30.
+- Result: removed request/response text labels; verbose requests now use `<` and
+  responses keep `>`. System statistics use `=`. Normal token/context and weekly
+  usage output is compacted to one line per group, while verbose mode retains
+  one marked line per field. Updated help, README, changelog, and tests. Checks:
+  focused CLI/Codex race tests; full race tests; vet; build; help output; and
+  diff check.
+
 ### ORCH-035 — Always show model activity
 
 - Completed: 2026-08-30.

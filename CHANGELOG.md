@@ -9,6 +9,9 @@ after its first release.
 
 ### Changed
 
+- Replace verbose request/response text labels with directional `<` and `>`
+  markers. Mark system statistics with `=` and compact token/context and weekly
+  usage into one line outside verbose mode.
 - Show reasoning summaries, command launches, and changed paths in normal output
   as well as verbose output; lifecycle progress remains verbose-only.
 - Hide session/thread/turn lifecycle progress by default. Verbose output now

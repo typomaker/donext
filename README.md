@@ -190,14 +190,14 @@ While a goal runs, `donext` prints each completed model message to the terminal
 with every line prefixed by `>`. The prompt and session lifecycle are hidden and
 responses have no label by default. Live activity always uses distinct markers:
 `?` for available reasoning summaries, `$` for command launches, and `~` for
-files changed by patch operations. With `-v` or `--verbose`, requests and
-responses are explicitly labeled with `>`-prefixed lines and session lifecycle
-uses `#`. App Server
+files changed by patch operations. Responses use `>` lines. Requests are visible
+only with `-v` or `--verbose` and use `<` lines; neither direction has a text
+label. Verbose session lifecycle uses `#`. App Server
 does not expose the model's private chain of thought; the reasoning output is
-the summary supplied by the protocol. When the turn ends, the CLI prints input,
-cached input, output, reasoning, and total token counts. When App Server supplies
-a model context window, it also prints the latest request's context tokens and
-percentage used. Model messages and verbose activity are terminal-only and are
+the summary supplied by the protocol. When the turn ends, system statistics use
+the `=` marker. Normal output combines token counts and context use on one line;
+verbose output prints each field on its own marked line. Weekly usage follows
+the same compact/expanded convention. Model messages and live activity are terminal-only and are
 never copied into state or lifecycle logs. Standalone orchestrator control markers are hidden from
 the terminal model output and are consumed only by the final-response handler.
 If removing those markers leaves no visible response, the CLI prints
