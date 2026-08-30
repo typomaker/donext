@@ -115,7 +115,14 @@ interruption, an interactive request, a standalone `ORCHESTRATOR_BLOCKED` final
 response, or the weekly usage budget. A failed linter, test, coverage check,
 profiler, or log-based verification is feedback for the active thread: Codex is
 instructed to diagnose it, repair the current step, and rerun the relevant
-check. A blocked response is reserved for an external condition the current
+check. Before selecting a new item, Codex also checks whether uncommitted work,
+missing required commits, or failed gates show that the previous roadmap step
+is actually unfinished. Recovering that step becomes the thread's sole goal;
+after its verified commit, the turn ends without starting the next item.
+Repository commands run from the canonical project root by default; if Codex
+selects a narrower working directory, command paths must be relative to it so a
+prefix such as `server/server/...` is not introduced. A
+blocked response is reserved for an external condition the current
 thread cannot fix, such as an unavailable environment, missing permissions, or
 required user action. It records `blocked`, returns a nonzero exit code, and
 never starts another goal. Failures and

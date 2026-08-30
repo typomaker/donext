@@ -9,6 +9,10 @@ after its first release.
 
 ### Fixed
 
+- Keep recovery of clearly unfinished prior-step work as the thread's sole goal
+  and stop after its verified commit instead of continuing into the next item.
+- Keep repository commands rooted consistently and forbid duplicating a chosen
+  working-directory prefix in command paths.
 - Shorten managed Desktop thread titles to the readable local format
   `30 Aug 14:08 · next roadmap step` without redundant project prefixes.
 - Reveal each newly created thread in Codex Desktop on macOS before its turn

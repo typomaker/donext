@@ -51,6 +51,16 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-028 — Keep recovered prior work in one thread
+
+- Completed: 2026-08-30.
+- Result: every prompt now treats clearly unfinished prior-step work as the
+  thread's sole goal, stops after its verified commit, and forbids continuing
+  into the next roadmap item. Repository commands default to the canonical root,
+  with relative paths required for narrower working directories. Updated README
+  and changelog. Checks: focused CLI race tests; full race tests; full tests;
+  vet; build; and diff check.
+
 ### ORCH-027 — Shorten managed thread names
 
 - Completed: 2026-08-30.

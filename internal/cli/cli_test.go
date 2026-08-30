@@ -438,7 +438,7 @@ func TestCustomPromptReachesTurnButNotLifecycleLog(t *testing.T) {
 	if fake.prompt != composePrompt(secretPrompt) {
 		t.Fatalf("prompt=%q", fake.prompt)
 	}
-	for _, want := range []string{"диагностируй причину", "повтори релевантную проверку", "внешнего блокера"} {
+	for _, want := range []string{"единственной задачей текущего треда", "не начинай следующий roadmap-шаг", "канонического корня проекта", "пути относительно этой директории", "диагностируй причину", "повтори релевантную проверку", "внешнего блокера"} {
 		if !strings.Contains(fake.prompt, want) {
 			t.Fatalf("prompt lacks repair contract %q: %q", want, fake.prompt)
 		}
