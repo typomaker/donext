@@ -256,7 +256,7 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 	store := state.New(stateDir)
 	lock, recovered, err := store.Acquire(projectID)
 	if err != nil {
-		printTerminal(stdout, projectName, "-", "failed")
+		printTerminal(stdout, projectName, "-", "failed", project.Verbose)
 		if errors.Is(err, state.ErrLocked) {
 			fmt.Fprintf(stderr, "project %s is already running\n", projectName)
 		} else {
@@ -270,7 +270,7 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 	}
 	logLifecycle(store, stderr, projectID, "donext", "run_started", nil)
 	if err := store.Write(state.State{Project: projectID, Status: "running"}); err != nil {
-		printTerminal(stdout, projectName, "-", "failed")
+		printTerminal(stdout, projectName, "-", "failed", project.Verbose)
 		fmt.Fprintf(stderr, "write running state: %v\n", err)
 		return 1
 	}
@@ -285,7 +285,7 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 		if err != nil {
 			_ = store.Write(state.State{Project: projectID, Status: "failed"})
 			logLifecycle(store, stderr, projectID, "app-server", "start_failed", nil)
-			printTerminal(stdout, projectName, "-", "failed")
+			printTerminal(stdout, projectName, "-", "failed", project.Verbose)
 			fmt.Fprintf(stderr, "start app-server: %v\n", err)
 			return 1
 		}
@@ -325,7 +325,10 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 				_ = store.Write(state.State{Project: projectID, Status: "weekly_usage_budget_reached"})
 				fields := map[string]string{"baseline": fmt.Sprint(baseline.UsedPercent), "current_usage": fmt.Sprint(current.UsedPercent), "consumed_delta": fmt.Sprint(delta), "budget": fmt.Sprint(weeklyUsageBudget)}
 				logLifecycle(store, stderr, projectID, "donext", "weekly_usage_budget_reached", fields)
-				fmt.Fprintf(stdout, "project: %s\nthread: -\nstatus: weekly_usage_budget_reached\nbaseline: %d\ncurrent_usage: %d\nconsumed_delta: %d\nbudget: %d\n", projectName, baseline.UsedPercent, current.UsedPercent, delta, weeklyUsageBudget)
+				printTerminal(stdout, projectName, "-", "weekly_usage_budget_reached", project.Verbose)
+				if project.Verbose {
+					printWeeklyBudget(stdout, baseline.UsedPercent, current.UsedPercent, weeklyUsageBudget, true)
+				}
 				return 0
 			}
 		}
@@ -377,7 +380,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 	if err != nil {
 		_ = store.Write(state.State{Project: projectID, Status: "failed"})
 		logLifecycle(store, stderr, projectID, "thread", "start_failed", nil)
-		printTerminal(stdout, projectName, "-", "failed")
+		printTerminal(stdout, projectName, "-", "failed", project.Verbose)
 		fmt.Fprintf(stderr, "start thread: %v\n", err)
 		return "failed", false
 	}
@@ -386,7 +389,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 	}
 	logLifecycle(store, stderr, projectID, "thread", "started", map[string]string{"thread": threadID})
 	if err := store.Write(state.State{Project: projectID, Status: "running", ThreadID: threadID}); err != nil {
-		printTerminal(stdout, projectName, threadID, "failed")
+		printTerminal(stdout, projectName, threadID, "failed", project.Verbose)
 		fmt.Fprintf(stderr, "write running state: %v\n", err)
 		return "failed", false
 	}
@@ -395,7 +398,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 	if err := client.NameThread(ctx, threadID, threadName); err != nil {
 		_ = store.Write(state.State{Project: projectID, Status: "failed", ThreadID: threadID})
 		logLifecycle(store, stderr, projectID, "thread", "name_failed", map[string]string{"thread": threadID})
-		printTerminal(stdout, projectName, threadID, "failed")
+		printTerminal(stdout, projectName, threadID, "failed", project.Verbose)
 		fmt.Fprintf(stderr, "name thread: %v\n", err)
 		return "failed", false
 	}
@@ -409,7 +412,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 	if err != nil {
 		_ = store.Write(state.State{Project: projectID, Status: "failed", ThreadID: threadID})
 		logLifecycle(store, stderr, projectID, "turn", "start_failed", map[string]string{"thread": threadID})
-		printTerminal(stdout, projectName, threadID, "failed")
+		printTerminal(stdout, projectName, threadID, "failed", project.Verbose)
 		fmt.Fprintf(stderr, "start turn: %v\n", err)
 		return "failed", false
 	}
@@ -418,7 +421,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 	}
 	logLifecycle(store, stderr, projectID, "turn", "started", map[string]string{"thread": threadID, "turn": turnID})
 	if err := store.Write(state.State{Project: projectID, Status: "running", ThreadID: threadID, TurnID: turnID}); err != nil {
-		printTerminal(stdout, projectName, threadID, "failed")
+		printTerminal(stdout, projectName, threadID, "failed", project.Verbose)
 		fmt.Fprintf(stderr, "write running state: %v\n", err)
 		return "failed", false
 	}
@@ -435,7 +438,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 			if desiredStatus != "" {
 				fmt.Fprintln(stderr, "second shutdown signal received; terminating app-server immediately")
 				_ = client.ForceClose()
-				return finishStopped(store, projectID, projectName, threadID, turnID, desiredStatus, stopReason, stdout, stderr)
+				return finishStopped(store, projectID, projectName, threadID, turnID, desiredStatus, stopReason, project.Verbose, stdout, stderr)
 			}
 			desiredStatus, stopReason = "interrupted", "shutdown signal received"
 			fmt.Fprintf(stderr, "interrupting active turn %s in thread %s\n", turnID, threadID)
@@ -446,15 +449,15 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 		case <-grace:
 			fmt.Fprintln(stderr, "shutdown grace period expired; terminating app-server")
 			_ = client.ForceClose()
-			return finishStopped(store, projectID, projectName, threadID, turnID, desiredStatus, stopReason, stdout, stderr)
+			return finishStopped(store, projectID, projectName, threadID, turnID, desiredStatus, stopReason, project.Verbose, stdout, stderr)
 		case event, open := <-client.Events():
 			if !open {
 				if desiredStatus != "" {
-					return finishStopped(store, projectID, projectName, threadID, turnID, desiredStatus, stopReason, stdout, stderr)
+					return finishStopped(store, projectID, projectName, threadID, turnID, desiredStatus, stopReason, project.Verbose, stdout, stderr)
 				}
 				_ = store.Write(state.State{Project: projectID, Status: "failed", ThreadID: threadID, TurnID: turnID})
 				logLifecycle(store, stderr, projectID, "turn", "stream_closed", map[string]string{"thread": threadID, "turn": turnID, "status": "failed"})
-				printTerminal(stdout, projectName, threadID, "failed")
+				printTerminal(stdout, projectName, threadID, "failed", project.Verbose)
 				fmt.Fprintln(stderr, "app-server event stream closed before turn/completed")
 				return "failed", false
 			}
@@ -535,7 +538,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 				}
 			}
 			if err := store.Write(state.State{Project: projectID, Status: status, ThreadID: threadID, TurnID: turnID}); err != nil {
-				printTerminal(stdout, projectName, threadID, "failed")
+				printTerminal(stdout, projectName, threadID, "failed", project.Verbose)
 				fmt.Fprintf(stderr, "write terminal state: %v\n", err)
 				return "failed", false
 			}
@@ -544,7 +547,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 				lifecycleEvent = "blocked"
 			}
 			logLifecycle(store, stderr, projectID, "turn", lifecycleEvent, map[string]string{"thread": threadID, "turn": turnID, "status": status})
-			printTerminal(stdout, projectName, threadID, status)
+			printTerminal(stdout, projectName, threadID, status, project.Verbose)
 			printUsageSummary(ctx, client, tokenUsage, weeklyBaseline, weeklyBudget, project.Verbose, stdout, stderr)
 			if status == "completed" || status == "no_work" {
 				return status, true
@@ -579,19 +582,13 @@ func revealThreadInDesktop(threadID string) error {
 }
 
 func printUsageSummary(ctx context.Context, client codex.Client, usage *codex.Event, weeklyBaseline *codex.RateLimitWindow, weeklyBudget int, verbose bool, stdout, stderr io.Writer) {
-	if usage != nil {
+	if verbose && usage != nil {
 		contextTokens := usage.LastUsage.TotalTokens
-		if verbose {
-			fmt.Fprintf(stdout, "= input_tokens: %d\n= cached_input_tokens: %d\n= output_tokens: %d\n= reasoning_output_tokens: %d\n= total_tokens: %d\n", usage.TotalUsage.InputTokens, usage.TotalUsage.CachedInputTokens, usage.TotalUsage.OutputTokens, usage.TotalUsage.ReasoningOutputTokens, usage.TotalUsage.TotalTokens)
-			if usage.ContextWindow != nil && *usage.ContextWindow > 0 {
-				fmt.Fprintf(stdout, "= context_tokens: %d\n= context_window: %d\n= context_used_percent: %.1f\n", contextTokens, *usage.ContextWindow, float64(contextTokens)*100/float64(*usage.ContextWindow))
-			}
-		} else if usage.ContextWindow != nil && *usage.ContextWindow > 0 {
-			fmt.Fprintf(stdout, "= tokens input=%d cached=%d output=%d reasoning=%d total=%d context=%d/%d (%.1f%%)\n", usage.TotalUsage.InputTokens, usage.TotalUsage.CachedInputTokens, usage.TotalUsage.OutputTokens, usage.TotalUsage.ReasoningOutputTokens, usage.TotalUsage.TotalTokens, contextTokens, *usage.ContextWindow, float64(contextTokens)*100/float64(*usage.ContextWindow))
-		} else {
-			fmt.Fprintf(stdout, "= tokens input=%d cached=%d output=%d reasoning=%d total=%d context=unavailable\n", usage.TotalUsage.InputTokens, usage.TotalUsage.CachedInputTokens, usage.TotalUsage.OutputTokens, usage.TotalUsage.ReasoningOutputTokens, usage.TotalUsage.TotalTokens)
+		fmt.Fprintf(stdout, "= input_tokens: %d\n= cached_input_tokens: %d\n= output_tokens: %d\n= reasoning_output_tokens: %d\n= total_tokens: %d\n", usage.TotalUsage.InputTokens, usage.TotalUsage.CachedInputTokens, usage.TotalUsage.OutputTokens, usage.TotalUsage.ReasoningOutputTokens, usage.TotalUsage.TotalTokens)
+		if usage.ContextWindow != nil && *usage.ContextWindow > 0 {
+			fmt.Fprintf(stdout, "= context_tokens: %d\n= context_window: %d\n= context_used_percent: %.1f\n", contextTokens, *usage.ContextWindow, float64(contextTokens)*100/float64(*usage.ContextWindow))
 		}
-	} else {
+	} else if verbose {
 		fmt.Fprintln(stdout, "= token_usage: unavailable")
 	}
 	if weeklyBaseline == nil || weeklyBudget == 0 {
@@ -607,16 +604,20 @@ func printUsageSummary(ctx context.Context, client codex.Client, usage *codex.Ev
 		fmt.Fprintln(stderr, "warning: post-session weekly usage is unavailable")
 		return
 	}
-	delta := current.UsedPercent - weeklyBaseline.UsedPercent
-	remaining := weeklyBudget - delta
+	printWeeklyBudget(stdout, weeklyBaseline.UsedPercent, current.UsedPercent, weeklyBudget, verbose)
+}
+
+func printWeeklyBudget(w io.Writer, baseline, current, budget int, verbose bool) {
+	delta := current - baseline
+	remaining := budget - delta
 	if remaining < 0 {
 		remaining = 0
 	}
 	if verbose {
-		fmt.Fprintf(stdout, "= weekly_usage_baseline: %d\n= weekly_usage_current: %d\n= weekly_budget_consumed: %d\n= weekly_budget: %d\n= weekly_budget_remaining: %d\n", weeklyBaseline.UsedPercent, current.UsedPercent, delta, weeklyBudget, remaining)
-	} else {
-		fmt.Fprintf(stdout, "= weekly_usage baseline=%d current=%d consumed=%d budget=%d remaining=%d\n", weeklyBaseline.UsedPercent, current.UsedPercent, delta, weeklyBudget, remaining)
+		fmt.Fprintf(w, "= weekly_usage_baseline: %d\n= weekly_usage_current: %d\n= weekly_budget_consumed: %d\n= weekly_budget: %d\n= weekly_budget_remaining: %d\n", baseline, current, delta, budget, remaining)
+		return
 	}
+	printMarkedLine(w, '%', fmt.Sprintf("weekly budget remaining: %.1f%%", float64(remaining)*100/float64(budget)))
 }
 
 func logLifecycle(store *state.Store, stderr io.Writer, project, component, event string, fields map[string]string) {
@@ -625,7 +626,7 @@ func logLifecycle(store *state.Store, stderr io.Writer, project, component, even
 	}
 }
 
-func finishStopped(store *state.Store, projectID, projectName, threadID, turnID, status, reason string, stdout, stderr io.Writer) (string, bool) {
+func finishStopped(store *state.Store, projectID, projectName, threadID, turnID, status, reason string, verbose bool, stdout, stderr io.Writer) (string, bool) {
 	if status == "" {
 		status = "failed"
 	}
@@ -633,7 +634,7 @@ func finishStopped(store *state.Store, projectID, projectName, threadID, turnID,
 		fmt.Fprintf(stderr, "write terminal state: %v\n", err)
 	}
 	logLifecycle(store, stderr, projectID, "turn", "stopped", map[string]string{"thread": threadID, "turn": turnID, "status": status})
-	printTerminal(stdout, projectName, threadID, status)
+	printTerminal(stdout, projectName, threadID, status, verbose)
 	if reason != "" && status != "failed" {
 		fmt.Fprintln(stderr, reason)
 	}
@@ -686,7 +687,10 @@ func taskTitleFromOutput(output string) (string, bool) {
 	return "", false
 }
 
-func printTerminal(w io.Writer, project, threadID, status string) {
+func printTerminal(w io.Writer, project, threadID, status string, verbose bool) {
+	if !verbose {
+		return
+	}
 	fmt.Fprintf(w, "project: %s\nthread: %s\nstatus: %s\n", project, threadID, status)
 }
 
@@ -708,7 +712,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "options:")
 	fmt.Fprintln(w, "  -v, --verbose")
-	fmt.Fprintln(w, "      show session lifecycle, requests, and expanded system status; activity lines use local HH:MM:SS.mmm time")
+	fmt.Fprintln(w, "      show session metadata, requests, token diagnostics, and expanded budget details")
 	fmt.Fprintln(w, "  --approval-policy POLICY")
 	fmt.Fprintln(w, "      never (default), on-request, untrusted")
 	fmt.Fprintln(w, "  --sandbox MODE")

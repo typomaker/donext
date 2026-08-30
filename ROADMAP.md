@@ -50,6 +50,17 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-041 — Focus normal completion output on remaining run budget
+
+- Completed: 2026-08-30.
+- Result: normal session boundaries now hide project/thread/status metadata and
+  token/context diagnostics. A configured weekly budget emits one timestamped
+  `%` line containing the percentage remaining relative to the budget set at
+  process launch; expanded raw usage and terminal metadata remain available in
+  verbose mode. Updated help, README, changelog, and deterministic CLI coverage.
+  Checks: focused CLI tests; full tests; full race tests; vet; build; help
+  output; and diff check.
+
 ### ORCH-040 — Release completed sessions to Codex Desktop during continuous runs
 
 - Completed: 2026-08-30.

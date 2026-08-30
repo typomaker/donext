@@ -495,7 +495,7 @@ func TestRunOnceCompleted(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := Run(append(runArgsFor(t, repository), "--once"), &stdout, &stderr)
-	if code != 0 || stdout.String() != "project: alpha\nthread: thread-123\nstatus: completed\n= token_usage: unavailable\n" {
+	if code != 0 || stdout.String() != "" {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 	if fake.threadStarts != 1 || fake.turnStarts != 1 || fake.closed != 1 || fake.prompt != defaultPrompt {
@@ -652,10 +652,7 @@ func TestRunContinuousCompletedCompletedNoWork(t *testing.T) {
 	if starts != 3 || fake.threadStarts != 3 || fake.turnStarts != 3 || fake.closed != 3 {
 		t.Fatalf("starts=%d fake=%+v", starts, fake)
 	}
-	want := "project: alpha\nthread: thread-1\nstatus: completed\n" +
-		"= token_usage: unavailable\nproject: alpha\nthread: thread-2\nstatus: completed\n" +
-		"= token_usage: unavailable\nproject: alpha\nthread: thread-3\nstatus: no_work\n" +
-		"= token_usage: unavailable\n"
+	want := ""
 	if stdout.String() != want {
 		t.Fatalf("stdout=%q want=%q", stdout.String(), want)
 	}
@@ -680,12 +677,13 @@ func TestRunContinuousStopsAfterTerminalFailure(t *testing.T) {
 }
 
 func TestRunContinuousStopsBeforeNextGoalAtWeeklyBudget(t *testing.T) {
+	withCurrentTime(t, time.Date(2026, time.August, 30, 16, 34, 24, 259_000_000, time.FixedZone("MSK", 3*60*60)))
 	fake := &fakeCodex{events: make(chan codex.Event, 2), outcomes: []string{"completed", "completed"}, rateLimits: []codex.RateLimits{weeklyLimits(19, 2000), weeklyLimits(20, 2000)}}
 	withFakeCodex(t, fake)
 	var stdout, stderr bytes.Buffer
 	code := Run(runArgs(t, "--weekly-usage-budget", "1"), &stdout, &stderr)
-	want := "status: weekly_usage_budget_reached\nbaseline: 19\ncurrent_usage: 20\nconsumed_delta: 1\nbudget: 1\n"
-	if code != 0 || fake.threadStarts != 1 || fake.rateLimitReads != 3 || !strings.Contains(stdout.String(), want) {
+	want := "16:34:24.259 % weekly budget remaining: 0.0%\n"
+	if code != 0 || fake.threadStarts != 1 || fake.rateLimitReads != 3 || stdout.String() != want {
 		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
 	}
 }
@@ -720,10 +718,8 @@ func TestRunPrintsSessionProgressModelResponseAndUsage(t *testing.T) {
 	if strings.Contains(stderr.String(), "model response:") {
 		t.Fatalf("legacy response prefix remains: %q", stderr.String())
 	}
-	for _, want := range []string{"= tokens input=200 cached=50 output=50 reasoning=10 total=250 context=250/1000 (25.0%)"} {
-		if !strings.Contains(stdout.String(), want) {
-			t.Fatalf("stdout=%q missing %q", stdout.String(), want)
-		}
+	if stdout.String() != "" {
+		t.Fatalf("normal output leaked token diagnostics: %q", stdout.String())
 	}
 }
 
@@ -795,7 +791,7 @@ func TestRunWeeklyBudgetAllowsCompletedGoalToExceedBudget(t *testing.T) {
 	withFakeCodex(t, fake)
 	var stdout, stderr bytes.Buffer
 	code := Run(runArgs(t, "--weekly-usage-budget", "2"), &stdout, &stderr)
-	if code != 0 || fake.threadStarts != 1 || !strings.Contains(stdout.String(), "consumed=3") {
+	if code != 0 || fake.threadStarts != 1 || !strings.Contains(stdout.String(), "% weekly budget remaining: 0.0%") {
 		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
 	}
 }
@@ -844,7 +840,7 @@ func TestRunOnceRecognizesNoWorkOnlyInFinalAgentOutput(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := Run(runArgs(t, "--once"), &stdout, &stderr)
-	if code != 0 || !strings.Contains(stdout.String(), "status: no_work\n") {
+	if code != 0 || stdout.String() != "" {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 	if strings.Contains(stderr.String(), "DONEXT_NO_WORK") || !strings.Contains(stderr.String(), "> [response completed with no visible output]") {
@@ -864,7 +860,7 @@ func TestRunBlockedStopsContinuousExecutionAndLogsMetadata(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := Run(runArgsFor(t, repository), &stdout, &stderr)
-	if code != 1 || fake.threadStarts != 1 || !strings.Contains(stdout.String(), "status: blocked\n") {
+	if code != 1 || fake.threadStarts != 1 || stdout.String() != "" {
 		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
 	}
 	if strings.Contains(stderr.String(), "DONEXT_BLOCKED") || !strings.Contains(stderr.String(), "> loopback is unavailable") {
@@ -909,7 +905,7 @@ func TestRunOnceFailureAndInterruption(t *testing.T) {
 			withFakeCodex(t, fake)
 			var stdout, stderr bytes.Buffer
 			code := Run(runArgs(t, "--once"), &stdout, &stderr)
-			if code != 1 || !strings.Contains(stdout.String(), "status: "+status+"\n") {
+			if code != 1 || stdout.String() != "" {
 				t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 			}
 		})
@@ -928,7 +924,7 @@ func TestSignalInterruptsActiveTurnAndDoesNotStartNextThread(t *testing.T) {
 	if code != 1 || fake.interrupted != 1 || fake.threadStarts != 1 || fake.turnStarts != 1 {
 		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "thread: thread-123\nstatus: interrupted") {
+	if stdout.String() != "" {
 		t.Fatalf("stdout=%q", stdout.String())
 	}
 }
@@ -944,7 +940,7 @@ func TestServerRequestIsRejectedAndFailsWithThreadID(t *testing.T) {
 	if code != 1 || fake.rejected != 1 || fake.interrupted != 1 || fake.threadStarts != 1 {
 		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "thread: thread-123\nstatus: failed") || !strings.Contains(stderr.String(), "requestUserInput") {
+	if stdout.String() != "" || !strings.Contains(stderr.String(), "requestUserInput") {
 		t.Fatalf("stdout=%q stderr=%q", stdout.String(), stderr.String())
 	}
 }
@@ -973,7 +969,7 @@ func TestRunOnceStartFailureStillPrintsTerminalFields(t *testing.T) {
 	t.Cleanup(func() { startCodex = old })
 	var stdout, stderr bytes.Buffer
 	code := Run(runArgs(t, "--once"), &stdout, &stderr)
-	if code != 1 || stdout.String() != "project: alpha\nthread: -\nstatus: failed\n" || !strings.Contains(stderr.String(), "boom") {
+	if code != 1 || stdout.String() != "" || !strings.Contains(stderr.String(), "boom") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 }

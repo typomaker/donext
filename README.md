@@ -190,9 +190,13 @@ later goals, it compares current usage with that baseline. Reaching the budget
 stops successfully before another thread is created.
 
 The active turn is never interrupted, so a completed goal can overshoot the
-budget. After each completed session, the CLI prints the baseline, current
-weekly usage, consumed budget, configured budget, and remaining budget. Missing,
-ambiguous, reset, or anomalous weekly-window data fails closed.
+budget. After each completed session, normal output prints only the percentage
+remaining from the budget configured at process launch, for example
+`16:34:24.259 % weekly budget remaining: 60.0%`. The dedicated `%` marker denotes
+a session boundary budget update. `-v` or `--verbose` additionally prints the
+baseline, current weekly usage, consumed budget, configured budget, raw remaining
+points, and terminal session metadata. Missing, ambiguous, reset, or anomalous
+weekly-window data fails closed.
 
 ### Live session output and token usage
 
@@ -206,11 +210,12 @@ files changed by patch operations. Responses use `>` lines. Requests are visible
 only with `-v` or `--verbose` and use `<` lines; neither direction has a text
 label. Verbose session lifecycle uses `#`. App Server
 does not expose the model's private chain of thought; the reasoning output is
-the summary supplied by the protocol. When the turn ends, system statistics use
-the `=` marker. Normal output combines token counts and context use on one line;
-verbose output prints each field on its own marked line. Weekly usage follows
-the same compact/expanded convention. Raw App Server diagnostics are suppressed
-in normal output and are available with `-v` or `--verbose`; actionable errors
+the summary supplied by the protocol. Terminal session metadata and token/context
+diagnostics are hidden in normal output and available with `-v` or `--verbose`;
+verbose system statistics use the `=` marker. A configured weekly budget is the
+only normal completion summary and uses a timestamped `%` line showing the
+remaining percentage of that launch budget. Raw App Server diagnostics are also
+suppressed in normal output and available in verbose mode; actionable errors
 reported by `donext` remain visible in both modes. Model messages and live
 activity are terminal-only and are never copied into state or lifecycle logs.
 Standalone orchestrator control markers are hidden from the terminal model
