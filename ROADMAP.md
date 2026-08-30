@@ -52,6 +52,16 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-038 — Timestamp live terminal activity
+
+- Completed: 2026-08-30.
+- Result: every marked live activity line now starts with compact local time in
+  `HH:MM:SS.mmm` format, including each physical line of multiline messages.
+  Existing typed markers and machine-oriented lifecycle timestamps remain
+  unchanged. Updated help, README, changelog, and deterministic CLI coverage.
+  Checks: focused CLI/Codex race tests; full race tests; vet; build; help output;
+  and diff check.
+
 ### ORCH-037 — Hide App Server diagnostics outside verbose mode
 
 - Completed: 2026-08-30.

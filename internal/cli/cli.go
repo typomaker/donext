@@ -541,11 +541,12 @@ func printMarkedMessage(w io.Writer, marker byte, message string) {
 }
 
 func printMarkedLine(w io.Writer, marker byte, line string) {
+	timestamp := currentTime().Format("15:04:05.000")
 	if line == "" {
-		fmt.Fprintf(w, "%c\n", marker)
+		fmt.Fprintf(w, "%s %c\n", timestamp, marker)
 		return
 	}
-	fmt.Fprintf(w, "%c %s\n", marker, line)
+	fmt.Fprintf(w, "%s %c %s\n", timestamp, marker, line)
 }
 
 func revealThreadInDesktop(threadID string) error {
@@ -663,7 +664,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "options:")
 	fmt.Fprintln(w, "  -v, --verbose")
-	fmt.Fprintln(w, "      show session lifecycle, requests, and expanded system status")
+	fmt.Fprintln(w, "      show session lifecycle, requests, and expanded system status; activity lines use local HH:MM:SS.mmm time")
 	fmt.Fprintln(w, "  --approval-policy POLICY")
 	fmt.Fprintln(w, "      never (default), on-request, untrusted")
 	fmt.Fprintln(w, "  --sandbox MODE")

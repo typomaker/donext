@@ -187,7 +187,9 @@ ambiguous, reset, or anomalous weekly-window data fails closed.
 ### Live session output and token usage
 
 While a goal runs, `donext` prints each completed model message to the terminal
-with every line prefixed by `>`. The prompt and session lifecycle are hidden and
+with every line prefixed by compact local time and `>`, for example
+`15:27:41.083 >`. The `HH:MM:SS.mmm` timestamp includes milliseconds without
+repeating the date on every live line. The prompt and session lifecycle are hidden and
 responses have no label by default. Live activity always uses distinct markers:
 `?` for available reasoning summaries, `$` for command launches, and `~` for
 files changed by patch operations. Responses use `>` lines. Requests are visible

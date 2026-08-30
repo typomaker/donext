@@ -45,6 +45,7 @@ after its first release.
 
 ### Added
 
+- Compact local `HH:MM:SS.mmm` timestamps on every marked live activity line.
 - Complete approval-policy and sandbox value lists in `donext --help`.
 - Live thread/turn progress, terminal-only model responses, and post-session
   token, context-window, and weekly-budget statistics.

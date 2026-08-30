@@ -685,6 +685,7 @@ func TestRunContinuousStopsBeforeNextGoalAtWeeklyBudget(t *testing.T) {
 }
 
 func TestRunPrintsSessionProgressModelResponseAndUsage(t *testing.T) {
+	withCurrentTime(t, time.Date(2026, time.August, 30, 15, 27, 41, 83_000_000, time.FixedZone("MSK", 3*60*60)))
 	fake := &fakeCodex{events: make(chan codex.Event, 6)}
 	fake.events <- codex.Event{Kind: codex.ReasoningCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "inspect code"}
 	fake.events <- codex.Event{Kind: codex.CommandStarted, ThreadID: "thread-123", TurnID: "turn-456", Text: "go test ./..."}
@@ -700,7 +701,7 @@ func TestRunPrintsSessionProgressModelResponseAndUsage(t *testing.T) {
 	if code := Run(runArgs(t, "--once"), &stdout, &stderr); code != 0 {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	for _, want := range []string{"? inspect code\n", "$ go test ./...\n", "~ internal/cli/cli.go\n", "> implemented the step\n"} {
+	for _, want := range []string{"15:27:41.083 ? inspect code\n", "15:27:41.083 $ go test ./...\n", "15:27:41.083 ~ internal/cli/cli.go\n", "15:27:41.083 > implemented the step\n"} {
 		if !strings.Contains(stderr.String(), want) {
 			t.Fatalf("stderr=%q missing %q", stderr.String(), want)
 		}
@@ -721,6 +722,7 @@ func TestRunPrintsSessionProgressModelResponseAndUsage(t *testing.T) {
 }
 
 func TestRunVerbosePrintsLabeledRequestAndMultilineResponse(t *testing.T) {
+	withCurrentTime(t, time.Date(2026, time.August, 30, 15, 27, 41, 83_000_000, time.FixedZone("MSK", 3*60*60)))
 	fake := &fakeCodex{events: make(chan codex.Event, 6)}
 	fake.events <- codex.Event{Kind: codex.ReasoningCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "inspect code\nchoose fix"}
 	fake.events <- codex.Event{Kind: codex.CommandStarted, ThreadID: "thread-123", TurnID: "turn-456", Text: "go test ./..."}
@@ -736,7 +738,7 @@ func TestRunVerbosePrintsLabeledRequestAndMultilineResponse(t *testing.T) {
 	if code := Run(runArgs(t, "--once", "-v", "--prompt", "VERBOSE_REQUEST"), &stdout, &stderr); code != 0 {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	for _, want := range []string{"# starting new Codex session\n", "# session started: thread=thread-123\n", "# model turn started: turn=turn-456\n", "< VERBOSE_REQUEST\n", "? inspect code\n? choose fix\n", "$ go test ./...\n", "~ internal/cli/cli.go\n", "> first line\n>\n> third line\n"} {
+	for _, want := range []string{"15:27:41.083 # starting new Codex session\n", "15:27:41.083 # session started: thread=thread-123\n", "15:27:41.083 # model turn started: turn=turn-456\n", "15:27:41.083 < VERBOSE_REQUEST\n", "15:27:41.083 ? inspect code\n15:27:41.083 ? choose fix\n", "15:27:41.083 $ go test ./...\n", "15:27:41.083 ~ internal/cli/cli.go\n", "15:27:41.083 > first line\n15:27:41.083 >\n15:27:41.083 > third line\n"} {
 		if !strings.Contains(stderr.String(), want) {
 			t.Fatalf("stderr=%q missing %q", stderr.String(), want)
 		}
