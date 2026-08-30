@@ -300,7 +300,7 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 				return 0
 			}
 		}
-		status, ok := runGoal(ctx, client, project, store, signals, stdout, stderr)
+		status, ok := runGoal(ctx, client, project, store, baseline, weeklyUsageBudget, signals, stdout, stderr)
 		if !ok {
 			return 1
 		}
@@ -378,8 +378,9 @@ func validateSameWeeklyWindow(baseline, current codex.RateLimitWindow) error {
 	return nil
 }
 
-func runGoal(ctx context.Context, client codex.Client, project projectSpec, store *state.Store, signals <-chan os.Signal, stdout, stderr io.Writer) (string, bool) {
+func runGoal(ctx context.Context, client codex.Client, project projectSpec, store *state.Store, weeklyBaseline *codex.RateLimitWindow, weeklyBudget int, signals <-chan os.Signal, stdout, stderr io.Writer) (string, bool) {
 	projectID, projectName := project.ID, project.Name
+	fmt.Fprintln(stderr, "starting new Codex session")
 	threadID, err := client.StartThread(ctx, codex.ThreadOptions{CWD: project.Repository, ProjectID: project.DesktopProjectID, ApprovalPolicy: project.ApprovalPolicy, Sandbox: project.Sandbox})
 	if err != nil {
 		_ = store.Write(state.State{Project: projectID, Status: "failed"})
@@ -388,6 +389,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 		fmt.Fprintf(stderr, "start thread: %v\n", err)
 		return "failed", false
 	}
+	fmt.Fprintf(stderr, "session started: thread=%s\n", threadID)
 	logLifecycle(store, stderr, projectID, "thread", "started", map[string]string{"thread": threadID})
 	if err := store.Write(state.State{Project: projectID, Status: "running", ThreadID: threadID}); err != nil {
 		printTerminal(stdout, projectName, threadID, "failed")
@@ -409,6 +411,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 		fmt.Fprintf(stderr, "start turn: %v\n", err)
 		return "failed", false
 	}
+	fmt.Fprintf(stderr, "model turn started: turn=%s\n", turnID)
 	logLifecycle(store, stderr, projectID, "turn", "started", map[string]string{"thread": threadID, "turn": turnID})
 	if err := store.Write(state.State{Project: projectID, Status: "running", ThreadID: threadID, TurnID: turnID}); err != nil {
 		printTerminal(stdout, projectName, threadID, "failed")
@@ -417,6 +420,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 	}
 
 	finalOutput := ""
+	var tokenUsage *codex.Event
 	var grace <-chan time.Time
 	desiredStatus := ""
 	stopReason := ""
@@ -473,6 +477,12 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 			}
 			if event.Kind == codex.AgentMessageCompleted {
 				finalOutput = event.Text
+				fmt.Fprintf(stderr, "model response:\n%s\n", event.Text)
+				continue
+			}
+			if event.Kind == codex.TokenUsageUpdated {
+				usage := event
+				tokenUsage = &usage
 				continue
 			}
 			if event.Kind != codex.TurnCompleted {
@@ -492,12 +502,44 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 			}
 			logLifecycle(store, stderr, projectID, "turn", "completed", map[string]string{"thread": threadID, "turn": turnID, "status": status})
 			printTerminal(stdout, projectName, threadID, status)
+			printUsageSummary(ctx, client, tokenUsage, weeklyBaseline, weeklyBudget, stdout, stderr)
 			if status == "completed" || status == "no_work" {
 				return status, true
 			}
 			return status, false
 		}
 	}
+}
+
+func printUsageSummary(ctx context.Context, client codex.Client, usage *codex.Event, weeklyBaseline *codex.RateLimitWindow, weeklyBudget int, stdout, stderr io.Writer) {
+	if usage != nil {
+		fmt.Fprintf(stdout, "input_tokens: %d\ncached_input_tokens: %d\noutput_tokens: %d\nreasoning_output_tokens: %d\ntotal_tokens: %d\n", usage.TotalUsage.InputTokens, usage.TotalUsage.CachedInputTokens, usage.TotalUsage.OutputTokens, usage.TotalUsage.ReasoningOutputTokens, usage.TotalUsage.TotalTokens)
+		if usage.ContextWindow != nil && *usage.ContextWindow > 0 {
+			contextTokens := usage.LastUsage.TotalTokens
+			fmt.Fprintf(stdout, "context_tokens: %d\ncontext_window: %d\ncontext_used_percent: %.1f\n", contextTokens, *usage.ContextWindow, float64(contextTokens)*100/float64(*usage.ContextWindow))
+		}
+	} else {
+		fmt.Fprintln(stdout, "token_usage: unavailable")
+	}
+	if weeklyBaseline == nil || weeklyBudget == 0 {
+		return
+	}
+	limits, err := client.ReadRateLimits(ctx)
+	if err != nil {
+		fmt.Fprintf(stderr, "warning: read post-session weekly usage: %v\n", err)
+		return
+	}
+	current, err := weeklyWindow(limits)
+	if err != nil || validateSameWeeklyWindow(*weeklyBaseline, *current) != nil {
+		fmt.Fprintln(stderr, "warning: post-session weekly usage is unavailable")
+		return
+	}
+	delta := current.UsedPercent - weeklyBaseline.UsedPercent
+	remaining := weeklyBudget - delta
+	if remaining < 0 {
+		remaining = 0
+	}
+	fmt.Fprintf(stdout, "weekly_usage_baseline: %d\nweekly_usage_current: %d\nweekly_budget_consumed: %d\nweekly_budget: %d\nweekly_budget_remaining: %d\n", weeklyBaseline.UsedPercent, current.UsedPercent, delta, weeklyBudget, remaining)
 }
 
 func logLifecycle(store *state.Store, stderr io.Writer, project, component, event string, fields map[string]string) {

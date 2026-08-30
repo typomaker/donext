@@ -403,6 +403,21 @@ func (a *AppServer) route(msg wireMessage) {
 		}
 		return
 	}
+	if msg.Method == "thread/tokenUsage/updated" {
+		var p struct {
+			ThreadID   string `json:"threadId"`
+			TurnID     string `json:"turnId"`
+			TokenUsage struct {
+				Last               TokenUsage `json:"last"`
+				Total              TokenUsage `json:"total"`
+				ModelContextWindow *int64     `json:"modelContextWindow"`
+			} `json:"tokenUsage"`
+		}
+		if json.Unmarshal(msg.Params, &p) == nil {
+			a.emit(Event{Kind: TokenUsageUpdated, Method: msg.Method, ThreadID: p.ThreadID, TurnID: p.TurnID, LastUsage: p.TokenUsage.Last, TotalUsage: p.TokenUsage.Total, ContextWindow: p.TokenUsage.ModelContextWindow})
+		}
+		return
+	}
 	if msg.Method != "turn/completed" {
 		return
 	}

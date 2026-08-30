@@ -51,6 +51,15 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-019 — Show live session progress and usage statistics
+
+- Completed: 2026-08-30.
+- Result: added live thread/turn start messages and terminal-only completed model
+  responses; routed `thread/tokenUsage/updated`; and printed post-session token,
+  context-window, and configured weekly-budget statistics. Lifecycle files remain
+  metadata-only. Updated README, protocol notes, and changelog. Checks: focused
+  Codex/CLI race tests; full race tests; full tests; vet; build; and diff check.
+
 ### ORCH-018 — Negotiate the experimental project API capability
 
 - Completed: 2026-08-30.

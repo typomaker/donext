@@ -135,9 +135,14 @@ func TestFullLifecycleAndRouting(t *testing.T) {
 	}
 	f.send(map[string]any{"method": "unrecognized/future", "params": map[string]any{"x": 1}})
 	f.send(map[string]any{"method": "item/completed", "params": map[string]any{"threadId": "th-1", "turnId": "tu-1", "completedAtMs": 1, "item": map[string]any{"id": "item-1", "type": "agentMessage", "text": "done"}}})
+	f.send(map[string]any{"method": "thread/tokenUsage/updated", "params": map[string]any{"threadId": "th-1", "turnId": "tu-1", "tokenUsage": map[string]any{"last": map[string]any{"inputTokens": 80, "cachedInputTokens": 20, "outputTokens": 10, "reasoningOutputTokens": 4, "totalTokens": 90}, "total": map[string]any{"inputTokens": 80, "cachedInputTokens": 20, "outputTokens": 10, "reasoningOutputTokens": 4, "totalTokens": 90}, "modelContextWindow": 1000}}})
 	f.send(map[string]any{"method": "turn/completed", "params": map[string]any{"threadId": "th-1", "turn": map[string]any{"id": "tu-1", "status": "interrupted"}}})
 	e := <-c.Events()
 	if e.Kind != AgentMessageCompleted || e.Text != "done" || e.TurnID != "tu-1" {
+		t.Fatalf("event=%+v", e)
+	}
+	e = <-c.Events()
+	if e.Kind != TokenUsageUpdated || e.TotalUsage.TotalTokens != 90 || e.LastUsage.CachedInputTokens != 20 || e.ContextWindow == nil || *e.ContextWindow != 1000 {
 		t.Fatalf("event=%+v", e)
 	}
 	e = <-c.Events()

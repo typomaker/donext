@@ -152,7 +152,18 @@ later goals, it compares current usage with that baseline. Reaching the budget
 stops successfully before another thread is created.
 
 The active turn is never interrupted, so a completed goal can overshoot the
-budget. Missing, ambiguous, reset, or anomalous weekly-window data fails closed.
+budget. After each completed session, the CLI prints the baseline, current
+weekly usage, consumed budget, configured budget, and remaining budget. Missing,
+ambiguous, reset, or anomalous weekly-window data fails closed.
+
+### Live session output and token usage
+
+While a goal runs, `donext` reports new thread and turn IDs and prints each
+completed model message to the terminal. When the turn ends, it prints input,
+cached input, output, reasoning, and total token counts. When App Server supplies
+a model context window, it also prints the latest request's context tokens and
+percentage used. Model messages are terminal-only and are never copied into
+state or lifecycle logs.
 
 ## Project state, locking, and recovery
 

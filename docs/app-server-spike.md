@@ -77,6 +77,11 @@ must route known events and safely ignore or briefly log unknown ones. The serve
 may also initiate JSON-RPC approval or user-input requests; these must not be
 mistaken for notifications or terminal events.
 
+`thread/tokenUsage/updated` carries `last` and cumulative `total` token
+breakdowns plus an optional `modelContextWindow`. The orchestrator uses the
+latest event for post-turn terminal statistics without persisting it as a
+transcript.
+
 ## Persistence and Codex Desktop
 
 App Server reported the standard session path under

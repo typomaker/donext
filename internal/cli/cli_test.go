@@ -460,7 +460,7 @@ func TestRunOnceCompleted(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := Run(append(runArgsFor(t, repository), "--once"), &stdout, &stderr)
-	if code != 0 || stdout.String() != "project: alpha\nthread: thread-123\nstatus: completed\n" {
+	if code != 0 || stdout.String() != "project: alpha\nthread: thread-123\nstatus: completed\ntoken_usage: unavailable\n" {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 	if fake.threadStarts != 1 || fake.turnStarts != 1 || fake.closed != 1 || fake.prompt != defaultPrompt {
@@ -610,8 +610,9 @@ func TestRunContinuousCompletedCompletedNoWork(t *testing.T) {
 		t.Fatalf("starts=%d fake=%+v", starts, fake)
 	}
 	want := "project: alpha\nthread: thread-1\nstatus: completed\n" +
-		"project: alpha\nthread: thread-2\nstatus: completed\n" +
-		"project: alpha\nthread: thread-3\nstatus: no_work\n"
+		"token_usage: unavailable\nproject: alpha\nthread: thread-2\nstatus: completed\n" +
+		"token_usage: unavailable\nproject: alpha\nthread: thread-3\nstatus: no_work\n" +
+		"token_usage: unavailable\n"
 	if stdout.String() != want {
 		t.Fatalf("stdout=%q want=%q", stdout.String(), want)
 	}
@@ -641,8 +642,33 @@ func TestRunContinuousStopsBeforeNextGoalAtWeeklyBudget(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run(runArgs(t, "--weekly-usage-budget", "1"), &stdout, &stderr)
 	want := "status: weekly_usage_budget_reached\nbaseline: 19\ncurrent_usage: 20\nconsumed_delta: 1\nbudget: 1\n"
-	if code != 0 || fake.threadStarts != 1 || fake.rateLimitReads != 2 || !strings.Contains(stdout.String(), want) {
+	if code != 0 || fake.threadStarts != 1 || fake.rateLimitReads != 3 || !strings.Contains(stdout.String(), want) {
 		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
+	}
+}
+
+func TestRunPrintsSessionProgressModelResponseAndUsage(t *testing.T) {
+	fake := &fakeCodex{events: make(chan codex.Event, 3)}
+	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "implemented the step"}
+	window := int64(1000)
+	fake.events <- codex.Event{Kind: codex.TokenUsageUpdated, ThreadID: "thread-123", TurnID: "turn-456", LastUsage: codex.TokenUsage{TotalTokens: 250}, TotalUsage: codex.TokenUsage{InputTokens: 200, CachedInputTokens: 50, OutputTokens: 50, ReasoningOutputTokens: 10, TotalTokens: 250}, ContextWindow: &window}
+	fake.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: "thread-123", TurnID: "turn-456", Status: "completed"}
+	close(fake.events)
+	withFakeCodex(t, fake)
+
+	var stdout, stderr bytes.Buffer
+	if code := Run(runArgs(t, "--once"), &stdout, &stderr); code != 0 {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+	for _, want := range []string{"starting new Codex session", "session started: thread=thread-123", "model turn started: turn=turn-456", "model response:\nimplemented the step"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Fatalf("stderr=%q missing %q", stderr.String(), want)
+		}
+	}
+	for _, want := range []string{"input_tokens: 200", "cached_input_tokens: 50", "output_tokens: 50", "total_tokens: 250", "context_window: 1000", "context_used_percent: 25.0"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout=%q missing %q", stdout.String(), want)
+		}
 	}
 }
 
