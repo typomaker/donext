@@ -9,6 +9,8 @@ after its first release.
 
 ### Changed
 
+- Show reasoning summaries, command launches, and changed paths in normal output
+  as well as verbose output; lifecycle progress remains verbose-only.
 - Hide session/thread/turn lifecycle progress by default. Verbose output now
   marks lifecycle (`#`), reasoning summaries (`?`), command launches (`$`),
   file changes (`~`), and model text (`>`) while keeping activity terminal-only.

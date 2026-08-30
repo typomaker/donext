@@ -685,7 +685,10 @@ func TestRunContinuousStopsBeforeNextGoalAtWeeklyBudget(t *testing.T) {
 }
 
 func TestRunPrintsSessionProgressModelResponseAndUsage(t *testing.T) {
-	fake := &fakeCodex{events: make(chan codex.Event, 3)}
+	fake := &fakeCodex{events: make(chan codex.Event, 6)}
+	fake.events <- codex.Event{Kind: codex.ReasoningCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "inspect code"}
+	fake.events <- codex.Event{Kind: codex.CommandStarted, ThreadID: "thread-123", TurnID: "turn-456", Text: "go test ./..."}
+	fake.events <- codex.Event{Kind: codex.FileChangeCompleted, ThreadID: "thread-123", TurnID: "turn-456", Paths: []string{"internal/cli/cli.go"}}
 	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "implemented the step"}
 	window := int64(1000)
 	fake.events <- codex.Event{Kind: codex.TokenUsageUpdated, ThreadID: "thread-123", TurnID: "turn-456", LastUsage: codex.TokenUsage{TotalTokens: 250}, TotalUsage: codex.TokenUsage{InputTokens: 200, CachedInputTokens: 50, OutputTokens: 50, ReasoningOutputTokens: 10, TotalTokens: 250}, ContextWindow: &window}
@@ -697,7 +700,7 @@ func TestRunPrintsSessionProgressModelResponseAndUsage(t *testing.T) {
 	if code := Run(runArgs(t, "--once"), &stdout, &stderr); code != 0 {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	for _, want := range []string{"> implemented the step\n"} {
+	for _, want := range []string{"? inspect code\n", "$ go test ./...\n", "~ internal/cli/cli.go\n", "> implemented the step\n"} {
 		if !strings.Contains(stderr.String(), want) {
 			t.Fatalf("stderr=%q missing %q", stderr.String(), want)
 		}

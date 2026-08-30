@@ -188,11 +188,11 @@ ambiguous, reset, or anomalous weekly-window data fails closed.
 
 While a goal runs, `donext` prints each completed model message to the terminal
 with every line prefixed by `>`. The prompt and session lifecycle are hidden and
-responses have no label by default. With `-v` or `--verbose`, requests and
-responses are explicitly labeled with `>`-prefixed lines, and live activity
-uses distinct markers:
-`#` for session lifecycle, `?` for available reasoning summaries, `$` for
-command launches, and `~` for files changed by patch operations. App Server
+responses have no label by default. Live activity always uses distinct markers:
+`?` for available reasoning summaries, `$` for command launches, and `~` for
+files changed by patch operations. With `-v` or `--verbose`, requests and
+responses are explicitly labeled with `>`-prefixed lines and session lifecycle
+uses `#`. App Server
 does not expose the model's private chain of thought; the reasoning output is
 the summary supplied by the protocol. When the turn ends, the CLI prints input,
 cached input, output, reasoning, and total token counts. When App Server supplies

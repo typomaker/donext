@@ -52,6 +52,15 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-035 — Always show model activity
+
+- Completed: 2026-08-30.
+- Result: reasoning summaries, command launches, and changed paths now appear in
+  both normal and verbose terminal output with their typed markers. Only session,
+  thread, and turn lifecycle progress plus model-message labels remain gated by
+  `-v`/`--verbose`. Updated help, documentation, and changelog. Checks: focused
+  CLI/Codex race tests; full race tests; vet; build; help output; and diff check.
+
 ### ORCH-034 — Show verbose model activity with typed markers
 
 - Completed: 2026-08-30.

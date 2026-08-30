@@ -51,8 +51,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	once := root.Bool("once", false, "run exactly one Codex session")
 	dryRun := root.Bool("dry-run", false, "show the concrete launch without starting Codex")
 	var verbose bool
-	root.BoolVar(&verbose, "v", false, "show session lifecycle and model activity")
-	root.BoolVar(&verbose, "verbose", false, "show session lifecycle and model activity")
+	root.BoolVar(&verbose, "v", false, "show session lifecycle and label model messages")
+	root.BoolVar(&verbose, "verbose", false, "show session lifecycle and label model messages")
 	approvalPolicy := root.String("approval-policy", "never", "Codex approval policy: never, on-request, or untrusted")
 	sandbox := root.String("sandbox", "workspace-write", "Codex sandbox: read-only, workspace-write, or danger-full-access")
 	weeklyUsageBudget := root.Int("weekly-usage-budget", 0, "weekly quota percentage points available to this run")
@@ -483,15 +483,15 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 				}
 				continue
 			}
-			if project.Verbose && event.Kind == codex.ReasoningCompleted {
+			if event.Kind == codex.ReasoningCompleted {
 				printMarkedMessage(stderr, '?', event.Text)
 				continue
 			}
-			if project.Verbose && event.Kind == codex.CommandStarted {
+			if event.Kind == codex.CommandStarted {
 				printMarkedMessage(stderr, '$', event.Text)
 				continue
 			}
-			if project.Verbose && event.Kind == codex.FileChangeCompleted {
+			if event.Kind == codex.FileChangeCompleted {
 				for _, path := range event.Paths {
 					printMarkedLine(stderr, '~', path)
 				}
@@ -672,7 +672,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "options:")
 	fmt.Fprintln(w, "  -v, --verbose")
-	fmt.Fprintln(w, "      show session lifecycle and model activity")
+	fmt.Fprintln(w, "      show session lifecycle and label model messages")
 	fmt.Fprintln(w, "  --approval-policy POLICY")
 	fmt.Fprintln(w, "      never (default), on-request, untrusted")
 	fmt.Fprintln(w, "  --sandbox MODE")
