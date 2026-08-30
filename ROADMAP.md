@@ -52,6 +52,18 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-032 — Limit the built-in prompt to terminal markers
+
+- Completed: 2026-08-30.
+- Result: removed the default task and every built-in goal selection, scope,
+  recovery, Git, path, check, and commit rule. The default prompt now contains
+  only exceptional `DONEXT_NO_WORK` and `DONEXT_BLOCKED` semantics and explicitly
+  leaves normal behavior to the user and managed project; custom prompts receive
+  only the same neutral marker suffix. Updated CLI help, README, changelog, and
+  supersession history. Checks: focused CLI race tests; inspected the complete
+  effective dry-run prompt; full race tests; full tests; vet; build; and diff
+  check.
+
 ### ORCH-031 — Rename and narrow terminal markers
 
 - Completed: 2026-08-30.
@@ -92,7 +104,8 @@ These are outside the MVP until explicitly moved into "Current steps":
   into the next roadmap item. Repository commands default to the canonical root,
   with relative paths required for narrower working directories. Updated README
   and changelog. Checks: focused CLI race tests; full race tests; full tests;
-  vet; build; and diff check.
+  vet; build; and diff check. Superseded by ORCH-032, which returns this policy
+  to each managed project's instructions.
 
 ### ORCH-027 — Shorten managed thread names
 

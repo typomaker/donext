@@ -48,7 +48,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	}
 	root := flag.NewFlagSet("donext", flag.ContinueOnError)
 	root.SetOutput(stderr)
-	once := root.Bool("once", false, "run exactly one roadmap step")
+	once := root.Bool("once", false, "run exactly one Codex session")
 	dryRun := root.Bool("dry-run", false, "show the concrete launch without starting Codex")
 	var verbose bool
 	root.BoolVar(&verbose, "v", false, "show model requests and label request/response output")
@@ -133,7 +133,11 @@ func resolvePrompt(value string, explicitlySet bool) (string, error) {
 }
 
 func composePrompt(task string) string {
-	return strings.TrimSpace(task) + "\n\n" + orchestrationContract
+	task = strings.TrimSpace(task)
+	if task == "" {
+		return orchestrationContract
+	}
+	return task + "\n\n" + orchestrationContract
 }
 
 func statusCommand(args []string, stdout, stderr io.Writer) int {
@@ -206,18 +210,12 @@ type projectSpec struct {
 	Verbose                                               bool
 }
 
-const defaultTaskPrompt = "Independently determine and fully complete one next goal by following the available project documentation and instructions. Complete exactly one goal during this run."
+const orchestrationContract = `The following control markers apply only to exceptional terminal conditions. They do not define a goal, choose work, limit the number of tasks, or override behavior provided by the user or the project's instructions and documentation.
 
-const orchestrationContract = `If the task above defines a concrete goal, treat that goal as the primary instruction. Otherwise, independently determine the goal from the project. First inspect every applicable source of truth in the project: AGENTS.md and other instruction files, roadmaps, plans, documentation, the working tree, Git history, and the state of required checks. Determine the next goal according to the priority and selection rules in those sources, then complete exactly one goal. Do not treat the absence of a task in any single section or file as a reason to stop when other available instructions provide a way to determine further work.
-
-Before starting a new goal, check for unfinished prior work. If uncommitted changes clearly belong to a previous goal, or a goal is marked complete despite a missing required commit or failed checks, make recovering and completing that prior goal the sole goal of the current thread. After fixing it, completing all verification and required documentation, and creating its separate commit, end the turn without starting another goal.
-
-Run repository commands from the canonical project root by default. If you choose a narrower working directory, pass only paths relative to that directory and do not duplicate its prefix. After every linter, test, coverage gate, profiler, log analysis, or other required check, use the result as feedback. If a check fails, diagnose the cause, fix the implementation, tests, or configuration within the current goal, and rerun the relevant check. Do not stop merely because of an ordinary check failure that can be fixed in the current thread.
-
-Return DONEXT_NO_WORK on a separate line only when, after inspecting all available project instructions and documentation, there is no further planned goal. Return DONEXT_BLOCKED on a separate line only when the current goal cannot continue without external intervention, such as a required user decision or action, unavailable credentials or permissions, or a dependency on an external system that cannot be resolved from the project environment. Before returning DONEXT_BLOCKED, exhaust the permitted local ways to solve the problem and briefly explain what external intervention is required. Do not use DONEXT_BLOCKED for implementation errors or failed checks that can be diagnosed and fixed locally, and do not use either marker while the documented project plan still provides a goal that can be advanced.
+Return DONEXT_NO_WORK on a separate line only when the available project instructions and documentation contain no further plan of work. Return DONEXT_BLOCKED on a separate line only when continuing the current work requires external intervention, such as a user decision or action, unavailable credentials or permissions, or an external-system change that cannot be performed from the project environment. Before returning DONEXT_BLOCKED, exhaust locally available solutions and briefly explain the external intervention required. Do not use either marker for uncertainty, ordinary implementation errors, or failed checks that can be resolved locally. If neither exceptional condition applies, do not output a control marker and continue according to the user and project instructions.
 `
 
-var defaultPrompt = composePrompt(defaultTaskPrompt)
+var defaultPrompt = composePrompt("")
 
 func runCommand(options runOptions, stdout, stderr io.Writer) int {
 	identity, err := projectid.Resolve(".")

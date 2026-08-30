@@ -423,7 +423,7 @@ func TestPromptErrors(t *testing.T) {
 	})
 }
 
-func TestCustomPromptReachesTurnButNotLifecycleLog(t *testing.T) {
+func TestCustomPromptKeepsOnlyMarkerContractAndDoesNotReachLogs(t *testing.T) {
 	fake := &fakeCodex{events: make(chan codex.Event, 1)}
 	fake.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: "thread-123", TurnID: "turn-456", Status: "completed"}
 	close(fake.events)
@@ -441,9 +441,14 @@ func TestCustomPromptReachesTurnButNotLifecycleLog(t *testing.T) {
 	if strings.Contains(stderr.String(), secretPrompt) {
 		t.Fatalf("prompt leaked into normal terminal output: %q", stderr.String())
 	}
-	for _, want := range []string{"concrete goal", "primary instruction", "every applicable source of truth", "sole goal of the current thread", "without starting another goal", "canonical project root", "paths relative to that directory", "diagnose the cause", "rerun the relevant check", "only when, after inspecting all available", "exhaust the permitted local ways", "do not use either marker"} {
+	for _, want := range []string{"exceptional terminal conditions", "do not define a goal", "no further plan of work", "requires external intervention", "exhaust locally available solutions", "do not output a control marker"} {
 		if !strings.Contains(fake.prompt, want) {
-			t.Fatalf("prompt lacks repair contract %q: %q", want, fake.prompt)
+			t.Fatalf("prompt lacks marker contract %q: %q", want, fake.prompt)
+		}
+	}
+	for _, unwanted := range []string{"unfinished prior work", "missing required commit", "sole goal of the current thread", "canonical project root", "rerun the relevant check", "complete exactly one goal"} {
+		if strings.Contains(fake.prompt, unwanted) {
+			t.Fatalf("prompt contains project-owned behavior policy %q: %q", unwanted, fake.prompt)
 		}
 	}
 	dir, _ := stateDirectory(identity.Repository)
@@ -493,9 +498,14 @@ func TestRunOnceCompleted(t *testing.T) {
 	if !strings.Contains(fake.prompt, "DONEXT_BLOCKED") {
 		t.Fatalf("default prompt lacks blocked contract: %q", fake.prompt)
 	}
-	for _, want := range []string{"Independently determine", "every applicable source of truth", "there is no further planned goal", "cannot continue without external intervention", "Do not use DONEXT_BLOCKED for implementation errors"} {
+	for _, want := range []string{"only to exceptional terminal conditions", "no further plan of work", "requires external intervention", "Do not use either marker", "continue according to the user and project instructions"} {
 		if !strings.Contains(fake.prompt, want) {
-			t.Fatalf("default prompt lacks autonomous stop rule %q: %q", want, fake.prompt)
+			t.Fatalf("default prompt lacks marker rule %q: %q", want, fake.prompt)
+		}
+	}
+	for _, unwanted := range []string{"Independently determine", "complete exactly one goal", "canonical project root", "rerun the relevant check", "unfinished prior work"} {
+		if strings.Contains(fake.prompt, unwanted) {
+			t.Fatalf("default prompt contains project-owned behavior policy %q: %q", unwanted, fake.prompt)
 		}
 	}
 	if fake.threadOpts.CWD != identity.Repository || fake.name != "30 Aug 12:33 · next roadmap step" {

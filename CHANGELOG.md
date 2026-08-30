@@ -9,6 +9,9 @@ after its first release.
 
 ### Changed
 
+- Limit the built-in and appended prompt to exceptional terminal-marker rules;
+  goal selection, scope, checks, recovery, Git, path, and commit policies now
+  come exclusively from the user and managed project.
 - Rename stop markers to `DONEXT_NO_WORK` and `DONEXT_BLOCKED`; the former means
   that no further project plan exists, while the latter is reserved for goals
   that require external intervention after local options are exhausted.
@@ -22,17 +25,11 @@ after its first release.
 
 ### Fixed
 
-- Keep recovery of clearly unfinished prior-step work as the thread's sole goal
-  and stop after its verified commit instead of continuing into the next item.
-- Keep repository commands rooted consistently and forbid duplicating a chosen
-  working-directory prefix in command paths.
 - Shorten managed Desktop thread titles to the readable local format
   `30 Aug 14:08 · next roadmap step` without redundant project prefixes.
 - Reveal each newly created thread in Codex Desktop on macOS before its turn
   starts, and rely on canonical `cwd` grouping instead of the now-empty
   experimental `project/list`/`projectId` path.
-- Append a repair-and-retry completion contract to every prompt so fixable
-  linter, test, coverage, profiler, and log failures do not stop as blocked.
 
 ### Added
 

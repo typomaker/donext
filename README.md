@@ -71,10 +71,10 @@ donext
 ```
 
 `donext` does not parse the roadmap itself. It starts Codex with the canonical
-Git root, or the canonical current directory for a non-Git project, and asks
-Codex to determine and complete exactly one next goal from all applicable
-project instructions and documentation. Codex discovers applicable `AGENTS.md`
-files through its normal rules.
+Git root, or the canonical current directory for a non-Git project. Goal
+selection and execution behavior come from the user and the project's own
+instructions and documentation. Codex discovers applicable `AGENTS.md` files
+through its normal rules.
 
 ## Commands and modes
 
@@ -92,7 +92,7 @@ Examples:
 
 ```sh
 donext                         # run until a stop condition is reached
-donext --once                  # run no more than one roadmap step
+donext --once                  # run no more than one Codex session
 donext --dry-run               # print the effective launch without starting Codex
 donext --prompt 'Complete step ORCH-123'
 donext --prompt @prompt.md
@@ -115,19 +115,12 @@ does not stop the roadmap run.
 The loop stops on a standalone `DONEXT_NO_WORK` final response, failure,
 interruption, an interactive request, a standalone `DONEXT_BLOCKED` final
 response, or the weekly usage budget. A failed linter, test, coverage check,
-profiler, or log-based verification is feedback for the active thread: Codex is
-instructed to diagnose it, repair the current step, and rerun the relevant
-check. Before selecting a new item, Codex also checks whether uncommitted work,
-missing required commits, or failed gates show that the previous roadmap step
-is actually unfinished. Recovering that step becomes the thread's sole goal;
-after its verified commit, the turn ends without starting the next item.
-Repository commands run from the canonical project root by default; if Codex
-selects a narrower working directory, command paths must be relative to it so a
-prefix such as `server/server/...` is not introduced. A
-blocked response is reserved for an external condition the current
-thread cannot fix, such as an unavailable environment, missing permissions, or
-required user action. It records `blocked`, returns a nonzero exit code, and
-never starts another goal. Failures and
+response, or the weekly usage budget. Task selection, scope, verification,
+recovery, Git, commit, and working-directory policies belong to each project's
+own instructions; donext does not inject them. A blocked response is reserved
+for work that needs external intervention after local options are exhausted.
+It records `blocked`, returns a nonzero exit code, and never starts another
+goal. Failures and
 interruptions return a nonzero exit status; `completed`, `no_work`, and
 `weekly_usage_budget_reached` are successful terminal states.
 
@@ -145,16 +138,13 @@ mutually exclusive.
 - `-` reads redirected standard input.
 
 Empty prompts, missing or unreadable files, and terminal stdin are rejected
-before App Server starts. Without the flag, the built-in project-goal prompt is
-used. The built-in prompt and appended orchestration contract are in English.
-The orchestration completion contract is appended to every prompt source,
-including custom prompts. It tells Codex to consult all applicable project
-instructions, determine one goal autonomously, and repair failed verification
-before stopping. `DONEXT_NO_WORK` is allowed only when the project documentation
-contains no further plan. `DONEXT_BLOCKED` is allowed only when continuing the
-current goal requires external intervention after permitted local solutions
-have been exhausted. Locally diagnosable implementation and check failures are
-not blockers. Prompts are never stored in `.donext` or lifecycle logs.
+before App Server starts. Without the flag, the built-in English marker prompt
+is used. The same marker contract is appended to every custom prompt. It does
+not select goals or impose task, verification, recovery, Git, path, or commit
+policy. `DONEXT_NO_WORK` is allowed only when the project documentation contains
+no further plan. `DONEXT_BLOCKED` is allowed only when continuing current work
+requires external intervention after local solutions are exhausted. Prompts are
+never stored in `.donext` or lifecycle logs.
 
 ### Permissions and interactive requests
 
