@@ -1,58 +1,67 @@
 # AGENTS.md
 
-## Назначение проекта
+## Project purpose
 
-Этот репозиторий содержит локальный Codex Orchestrator: небольшой CLI для последовательного выполнения roadmap разных проектов через Codex App Server. Каждая задача должна выполняться в отдельном persisted Codex thread.
+This repository contains a local Codex orchestrator: a small CLI that executes
+project roadmaps sequentially through Codex App Server. Every task must run in a
+separate persisted Codex thread.
 
-Orchestrator управляет только выбором проекта и жизненным циклом thread/turn. Источниками истины остаются файлы проекта, его `AGENTS.md`, roadmap и стандартная история Codex sessions.
+The orchestrator only manages project selection and the thread/turn lifecycle.
+The project files, its `AGENTS.md`, its roadmap, and the standard Codex session
+history remain the sources of truth.
 
-## Источник задач
+## Task source
 
-- Актуальные задачи проекта находятся в `ROADMAP.md`.
-- Перед началом работы прочитай `ROADMAP.md` полностью, включая правила его ведения.
-- Выбирай первую незавершённую задачу из раздела «Текущие шаги», если пользователь явно не указал другую задачу.
-- За один рабочий цикл выполняй ровно один шаг roadmap полностью.
-- Не начинай следующий шаг после завершения выбранного.
-- Если задача слишком велика или выявилась новая обязательная работа, сначала отрази декомпозицию или новый пункт в `ROADMAP.md`.
+- Current tasks are listed in `ROADMAP.md`.
+- Read all of `ROADMAP.md`, including its maintenance rules, before starting.
+- Unless the user specifies another task, select the first unfinished item under
+  "Current steps."
+- Complete exactly one roadmap step per work cycle.
+- Do not start the next step after completing the selected one.
+- If a task is too large or reveals mandatory follow-up work, record its
+  decomposition or a new roadmap item first.
 
-## Завершение задачи
+## Completion criteria
 
-Задача считается выполненной только когда:
+A task is complete only when implementation, tests, relevant checks, required
+documentation, and repository consistency are all complete, and the item has
+been moved from "Current steps" to "Step history" in `ROADMAP.md`.
 
-- реализация завершена в полном заявленном объёме;
-- добавлены или обновлены необходимые тесты;
-- релевантные проверки успешно запущены;
-- документация обновлена, если изменилось пользовательское поведение;
-- репозиторий оставлен в согласованном состоянии;
-- выполненный пункт перенесён из «Текущих шагов» в «Историю шагов» файла `ROADMAP.md`.
+If work is blocked or checks fail, leave the step under "Current steps" and add
+a concise nested `Status` entry describing the state and blocker.
 
-Если работа заблокирована или проверки не проходят, не отмечай шаг выполненным и не перемещай его в историю. Запиши краткое состояние и причину блокировки в соответствующем пункте roadmap.
+## Architecture rules
 
-## Архитектурные правила
+- Do not implement a custom LLM client or call the Responses API directly
+  without a separate architecture decision.
+- Use the installed `codex app-server` and the existing Codex authentication.
+- Never assume App Server protocol details from memory. Verify the installed
+  version and isolate protocol-specific code in one adapter.
+- Start every managed roadmap goal in a new thread; never reuse a completed one.
+- Do not parse managed-project roadmaps unnecessarily. Codex determines the next
+  task from the canonical project roadmap.
+- Do not store transcripts or duplicate conversation history. Persist only the
+  minimum lifecycle metadata.
+- Do not run destructive Git operations such as `reset`, `clean`, or reverting
+  user changes.
+- A dirty worktree is not an automatic blocker, but it must be reported.
+- Always create a Git commit after successfully completing a task. Do not commit
+  partial or blocked work unless the user explicitly requests it.
+- Keep the architecture small; do not add a daemon, Web UI, scheduler, or custom
+  task database to the MVP.
 
-- Не реализовывай собственный LLM-клиент и не обращайся напрямую к Responses API без отдельного архитектурного решения.
-- Используй установленный `codex app-server` и существующую авторизацию Codex.
-- Не предполагай детали App Server API по памяти: сверяйся с протоколом установленной версии и изолируй protocol-specific код в одном адаптере.
-- Каждый roadmap goal управляемого проекта запускается в новом thread; завершённый thread не переиспользуется.
-- Не парси roadmap управляемых проектов без необходимости: следующую задачу определяет сам Codex из canonical roadmap проекта.
-- Не храни transcript или собственную копию conversation history. Допустимо хранить только минимальные lifecycle metadata.
-- Не выполняй разрушительные Git-операции (`reset`, `clean`, откат пользовательских изменений).
-- Dirty working tree не является автоматической причиной отказа, но должен быть явно отражён в выводе.
-- Не создавай commits, если этого прямо не требуют пользователь или инструкции конкретного проекта.
-- Сохраняй простую архитектуру и не добавляй daemon, Web UI, scheduler или собственную task database в MVP.
+## Implementation quality
 
-## Качество реализации
+- The App Server client must be replaceable with a fake or mock.
+- Determine turn completion from protocol events, not a timeout or CLI stdout.
+- Ignore or briefly log unknown protocol notifications without terminating.
+- Write state atomically.
+- Locks must be independent between projects.
+- Errors, interruptions, and interactive requests must never start the next goal.
+- Orchestrator logs must not copy the complete Codex transcript.
 
-- App Server client должен быть заменяемым fake/mock реализацией.
-- Завершение turn определяется protocol events, а не timeout или анализом stdout CLI.
-- Неизвестные protocol notifications обрабатывай совместимо: игнорируй или логируй их, не завершая процесс без необходимости.
-- State записывай атомарно.
-- Locks должны быть независимыми для разных проектов.
-- Ошибка, interruption или запрос интерактивного действия не должны автоматически запускать следующий goal.
-- Логи orchestrator не должны копировать полный Codex transcript.
+## Checks
 
-## Проверки
-
-- Запускай сначала узкие тесты изменённого пакета, затем полный набор релевантных тестов.
-- Обычные unit/integration tests не должны запускать реальный Codex и расходовать пользовательские лимиты.
-- Тесты с настоящим App Server должны быть явно opt-in и документированы.
+- Run focused tests for changed packages first, then all relevant tests.
+- Normal unit and integration tests must not run real Codex or consume user quota.
+- Tests using a real App Server must be explicitly opt-in and documented.

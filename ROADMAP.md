@@ -1,285 +1,197 @@
 # ROADMAP
 
-## Цель
+## Goal
 
-Создать локальный stateless CLI `donext` поверх Codex App Server, который из
-текущей директории последовательно выполняет roadmap проекта. Для каждого goal
-создаётся новый persisted Codex thread, а следующий goal запускается только после
-успешного завершения предыдущего.
+Build a local, stateless `donext` CLI on top of Codex App Server. From the
+current directory, it executes a project's roadmap sequentially. Every goal uses
+a new persisted Codex thread, and the next goal starts only after the previous
+one succeeds.
 
-## Правила ведения roadmap
+## Roadmap maintenance rules
 
-1. Источником следующей задачи является раздел «Текущие шаги».
-2. По умолчанию выполняется первый незавершённый шаг сверху вниз.
-3. За один Codex thread выполняется ровно один шаг.
-4. Шаг можно считать завершённым только после реализации, тестирования и необходимого обновления документации.
-5. Завершённый шаг удаляется из «Текущих шагов» и переносится в конец раздела «История шагов».
-6. Запись в истории сохраняет исходный номер, название, дату завершения и краткий результат с перечислением выполненных проверок.
-7. Незавершённые, частично выполненные и заблокированные шаги остаются в «Текущих шагах». Их текущее состояние указывается вложенным пунктом `Статус`.
-8. Новые обязательные шаги добавляются в логически правильное место, а не автоматически в конец списка.
-9. Нумерация шага стабильна после начала реализации. Перенумеровывать существующие шаги только ради косметического порядка не нужно.
-10. Нельзя переносить шаг в историю при падающих релевантных тестах или неизвестном результате проверки.
-11. Перед началом шага необходимо прочитать `AGENTS.md` и этот файл полностью.
-12. Если текущих шагов не осталось, агент не изменяет репозиторий и завершает ответ маркером `ORCHESTRATOR_NO_WORK`.
+1. "Current steps" is the source of the next task.
+2. By default, select the first unfinished step from top to bottom.
+3. Complete exactly one step in each Codex thread.
+4. A step is complete only after implementation, testing, and required
+   documentation updates.
+5. Remove a completed step from "Current steps" and append it to "Step history."
+6. History entries preserve the original ID, title, completion date, concise
+   result, and checks performed.
+7. Keep unfinished, partial, or blocked steps under "Current steps" and add a
+   nested `Status` entry.
+8. Insert mandatory new work in the logically correct position, not
+   automatically at the end.
+9. Step IDs remain stable after implementation begins.
+10. Never move a step to history while relevant checks fail or remain unknown.
+11. Read `AGENTS.md` and this entire file before starting a step.
+12. If no current steps remain, do not modify the repository and finish with
+    the marker `ORCHESTRATOR_NO_WORK`.
 
-## Границы MVP
+## MVP scope
 
-В MVP входят:
+The MVP includes `donext` from the current directory; `--once`, `--dry-run`,
+`--prompt TEXT|@FILE|-`, and `--weekly-usage-budget N`; `donext status`; one App
+Server per process; one persisted thread per goal; real terminal-event waiting;
+stopping on no-work, failure, or interruption; independent project locks;
+state/recovery; tests; and documentation.
 
-- `donext` из текущей директории;
-- `donext --once`;
-- `donext --dry-run`;
-- `donext --prompt TEXT|@FILE|-`;
-- `donext --weekly-usage-budget N`;
-- `donext status` для текущего проекта;
-- запуск одного App Server на один процесс `donext`;
-- новый persisted thread для каждого goal;
-- ожидание реального terminal event turn;
-- остановка при `ORCHESTRATOR_NO_WORK`, failure или interruption;
-- независимые project locks, state/recovery, тесты и README.
+The MVP excludes a Web UI, daemon/service, scheduler, remote orchestration,
+custom task database, and forced Git commit management.
 
-В MVP не входят Web UI, daemon/service orchestrator, scheduler, remote orchestration, собственная база задач и принудительное управление Git commits.
+## Current steps
 
-## Текущие шаги
+## Deferred improvements
 
-## Отложенные улучшения
+These are outside the MVP until explicitly moved into "Current steps":
 
-Эти пункты не являются частью MVP и переносятся в «Текущие шаги» только отдельным решением:
+- interactive project selector;
+- connecting to an already running App Server daemon/socket;
+- automatic thread renaming after goal discovery;
+- defensive `--max-goals`;
+- additional transport implementations;
+- packaging and release automation.
 
-- интерактивный selector проекта;
-- подключение к уже запущенному App Server daemon/socket;
-- автоматическое уточнение имени thread после определения goal;
-- защитный `--max-goals`;
-- дополнительные transport implementations;
-- packaging и release automation.
+## Step history
 
-## История шагов
+### ORCH-014 — Replace an absolute threshold with a per-run weekly budget
 
-### ORCH-014 — Заменить абсолютный порог недельным бюджетом запуска
+- Completed: 2026-08-30.
+- Result: replaced `--max-used-percent` with `--weekly-usage-budget N`. The
+  adapter retains duration/reset metadata, selects the single 10,080-minute
+  window, records a baseline, and stops before a new thread when consumed delta
+  reaches the budget. Missing, ambiguous, reset, and anomalous data fail closed.
+  Checks: repeated race tests for Codex/CLI; full tests; vet; build; diff check.
 
-- Завершено: 2026-08-30.
-- Результат: `--max-used-percent` заменён на `--weekly-usage-budget N`; protocol
-  adapter сохраняет duration и reset metadata обоих rate-limit окон и выбирает
-  единственное недельное окно по `windowDurationMins == 10080`. До первого goal
-  фиксируется baseline, перед последующими считается consumed delta; достижение
-  или превышение бюджета останавливает цикл до создания нового thread со статусом
-  `weekly_usage_budget_reached` и полным budget summary. Отсутствующие,
-  неоднозначные, сбросившиеся и аномальные данные обрабатываются fail-closed;
-  активный turn не прерывается. README обновлён. Проверки: `go test -race
-  -count=10 ./internal/codex ./internal/cli`; `go test ./...`; `go vet ./...`;
-  `go build ./cmd/donext`; `git diff --check`.
+### ORCH-001 — Verify the installed Codex protocol and persistence
 
-### ORCH-001 — Проверить протокол и persistence установленного Codex
+- Completed: 2026-08-30.
+- Result: verified NDJSON framing, handshake, persisted thread/turn lifecycle,
+  naming, terminal events, restart persistence, and Desktop navigation against
+  `codex-cli 0.149.0-alpha.4.3`. Documented the spike and GUI limitations.
 
-- Завершено: 2026-08-30.
-- Результат: для `codex-cli 0.149.0-alpha.4.3` сгенерирована и изучена schema,
-  подтверждены NDJSON framing и initialize handshake, выполнен реальный persisted
-  thread/turn lifecycle с `thread/name/set` и terminal `turn/completed`, а
-  `thread/list` подтвердил сохранение после restart App Server. Thread успешно
-  открыт по ID в Codex Desktop; ограничения sidebar/project visibility описаны в
-  `docs/app-server-spike.md`. Проверки: schema generation; реальный stdio smoke
-  test; повторный `thread/list` из нового процесса; штатная GUI navigation.
+### ORCH-002 — Initialize the Go CLI and project configuration
 
-### ORCH-002 — Инициализировать Go CLI и конфигурацию проектов
+- Completed: 2026-08-30.
+- Result: created the Go module, initial orchestrator command, strict YAML
+  configuration, project validation, prompt loading, and dry-run. Checks: package
+  and full tests, vet, build, and manual dry-run. Later superseded by ORCH-012.
 
-- Завершено: 2026-08-30.
-- Результат: создан Go module и `cmd/orchestrator`, добавлена строгая
-  YAML-конфигурация Codex и произвольного количества проектов, загрузка prompt из
-  Markdown, валидация project key, абсолютного repository path и prompt file.
-  Реализованы `projects` и `run <project> --dry-run` без запуска Codex, добавлены
-  `config.example.yaml` и default prompt. Проверки: `go test ./internal/config
-  ./internal/cli`; `go test ./...`; `go vet ./...`; `go build
-  ./cmd/orchestrator`; ручной запуск `projects` и `run demo --dry-run` на
-  временной конфигурации.
+### ORCH-003 — Implement the minimal App Server adapter
 
-### ORCH-003 — Реализовать минимальный App Server adapter
+- Completed: 2026-08-30.
+- Result: added a mockable domain client and isolated stdio adapter with framing,
+  handshake, concurrent response correlation, thread/turn lifecycle, interrupt,
+  server requests, unknown-notification compatibility, and process errors.
+  Checks: repeated race tests, full tests, vet, and build.
 
-- Завершено: 2026-08-30.
-- Результат: добавлен mockable доменный интерфейс `Codex` и изолированный stdio
-  adapter, запускающий `codex app-server --stdio`; реализованы NDJSON framing,
-  initialize handshake, конкурентная correlation ответов, `thread/start`,
-  `thread/name/set`, `turn/start`, `turn/interrupt`, маршрутизация terminal events
-  и server requests, безопасное игнорирование неизвестных notifications, а также
-  обработка RPC/protocol errors, EOF, stderr и process exit. Protocol-level тесты
-  используют только in-memory fake transport и покрывают полный lifecycle,
-  interrupt, out-of-order responses, server requests и ошибки. Проверки:
-  `go test -race -count=10 ./internal/codex`; `go test ./...`; `go vet ./...`;
-  `go build ./cmd/orchestrator`.
+### ORCH-004 — Implement one complete `--once` run
 
-### ORCH-004 — Реализовать один полный запуск через `--once`
+- Completed: 2026-08-30.
+- Result: implemented Git-state reporting, one App Server, a new named persisted
+  thread, one prompt, terminal status classification, and final-message-only
+  no-work recognition. Checks: repeated race tests, full tests, vet, and build.
 
-- Завершено: 2026-08-30.
-- Результат: команда `run <project> --once` проверяет Git-состояние без
-  блокировки dirty/non-Git проекта, запускает один App Server, создаёт и именует
-  новый persisted thread в repository проекта, отправляет ровно один configured
-  prompt и ожидает terminal `turn/completed`. Добавлена классификация
-  `completed`, `failed`, `interrupted` и `no_work`, причём маркер
-  `ORCHESTRATOR_NO_WORK` учитывается только из финального completed agent message;
-  вывод всегда содержит project, thread ID и terminal status, а failure и
-  interruption возвращают ненулевой exit status. Проверки:
-  `go test -race -count=10 ./internal/codex ./internal/cli`; `go test ./...`;
-  `go vet ./...`; `go build ./cmd/orchestrator`.
+### ORCH-005 — Add continuous execution
 
-### ORCH-005 — Добавить continuous execution
+- Completed: 2026-08-30.
+- Result: added a loop that reuses one App Server but creates a new thread per
+  successful goal, stopping on no-work, failure, or interruption. Checks:
+  repeated race tests, full tests, vet, and build.
 
-- Завершено: 2026-08-30.
-- Результат: `run <project>` без флагов теперь выполняет goals непрерывно,
-  создавая новый persisted thread после каждого успешного goal и сохраняя один
-  App Server process на весь цикл. Цикл останавливается на `no_work`, failure или
-  interruption и не создаёт лишний thread после terminal stop condition;
-  `--once` сохраняет однократный режим, а `--dry-run` остаётся отдельным режимом.
-  Fake-Codex тесты покрывают последовательность `completed → completed → no-work`,
-  уникальность thread и остановку после failure. Проверки: `go test -race
-  -count=10 ./internal/cli`; `go test ./...`; `go vet ./...`; `go build
-  ./cmd/orchestrator`.
+### ORCH-006 — Implement state, locking, and recovery
 
-### ORCH-006 — Реализовать state, locking и recovery
+- Completed: 2026-08-30.
+- Result: added minimal transcript-free JSON state, atomic writes, independent
+  OS locks, stale-run recovery, and new-thread restart behavior. Checks: repeated
+  race tests for state/CLI, full tests, vet, and build.
 
-- Завершено: 2026-08-30.
-- Результат: добавлен отдельный минимальный JSON state каждого проекта без
-  transcript с атомарной записью через temporary file, `fsync` и rename;
-  OS-level `flock` независимо ограничивает конкурентный запуск по project key,
-  не блокируя другие проекты. CLI сохраняет `running` и terminal lifecycle с
-  thread/turn ID, распознаёт stale `running` после получения свободного lock и
-  при restart всегда создаёт новый thread. Тесты покрывают persistence через
-  новый Store, атомарную замену, независимость locks, конкурентный отказ и
-  recovery abandoned thread. Проверки: `go test -race -count=10
-  ./internal/state ./internal/cli`; `go test ./...`; `go vet ./...`; `go build
-  ./cmd/orchestrator`.
+### ORCH-007 — Handle interrupts and interactive requests correctly
 
-### ORCH-007 — Реализовать корректный interrupt и интерактивные запросы
+- Completed: 2026-08-30.
+- Result: the first signal interrupts and waits for a terminal event; a second
+  signal or grace timeout force-closes App Server. Approval and user-input
+  requests are rejected and stop unattended execution. Checks: generated schema,
+  repeated race tests, full tests, vet, and build.
 
-- Завершено: 2026-08-30.
-- Результат: первый `Ctrl+C`/`SIGTERM` запрещает продолжение continuous loop,
-  вызывает `turn/interrupt` и ожидает terminal event в пределах трёхсекундного
-  grace period; повторный сигнал или истечение grace period принудительно
-  завершает App Server. Approval и user-input server requests получают явный RPC
-  error, активный turn прерывается, а запуск завершается контролируемой ошибкой с
-  thread ID и сохранённым terminal state. В project config добавлены проверяемые
-  `approval_policy` и `sandbox`, соответствующие schema установленного App Server.
-  Проверки: генерация и сверка JSON schema `codex app-server`; `go test -race
-  -count=10 ./internal/config ./internal/codex ./internal/cli`; `go test ./...`;
-  `go vet ./...`; `go build ./cmd/orchestrator`.
+### ORCH-008 — Implement status and lifecycle logging
 
-### ORCH-008 — Реализовать status и lifecycle logging
+- Completed: 2026-08-30.
+- Result: added status output with repository, lock, turn, and timestamp; stale
+  state detection; and metadata-only lifecycle logs without prompts, reasoning,
+  transcripts, or command output. Checks: repeated race tests, full tests, vet,
+  and build.
 
-- Завершено: 2026-08-30.
-- Результат: добавлены сводный `orchestrator status` и подробный
-  `orchestrator status <project>` с repository, lock, turn и timestamp. Состояние
-  `running` сопоставляется с живым project lock, поэтому abandoned persisted
-  state показывается как `stale`, а не как активный процесс. Для каждого проекта
-  ведётся metadata-only lifecycle log App Server, thread и turn с UTC timestamp,
-  project key, идентификаторами и terminal status без prompt, reasoning,
-  transcript или command output. Проверки: `go test -race -count=10
-  ./internal/state ./internal/cli`; `go test ./...`; `go vet ./...`; `go build
-  ./cmd/orchestrator`.
+### ORCH-009 — Complete MVP documentation and verification
 
-### ORCH-009 — Завершить документацию и проверку MVP
+- Completed: 2026-08-30.
+- Result: documented requirements, installation, configuration, commands, stop
+  conditions, state, locks, recovery, dirty/non-Git behavior, sessions, GUI
+  limits, and opt-in smoke testing. A real isolated App Server run completed and
+  persisted successfully. Checks: full tests, vet, build, and real smoke test.
 
-- Завершено: 2026-08-30.
-- Результат: создан README с требованиями, установкой, конфигурацией, quick start,
-  всеми MVP-командами и условиями остановки; описаны state directory, атомарный
-  state, независимые locks, recovery, dirty/non-Git repository behavior, Codex
-  sessions и ограничения GUI visibility. Добавлена явная opt-in процедура smoke
-  test с предупреждением о расходовании лимитов. Definition of Done сверена:
-  автоматические тесты используют fake/in-memory App Server, документация
-  соответствует реализованному CLI, ручной запуск с настоящим App Server в
-  изолированном временном Git repository завершился статусом `completed` и
-  подтвердился через `status`. Проверки: `go test ./...`; `go vet ./...`;
-  `go build ./cmd/orchestrator`; реальный `run smoke --once` с persisted thread
-  `01a0519f-d009-7943-8ba8-010bcd9dd655`; `status smoke`.
+### ORCH-010 — Limit continuous runs by account usage
 
-### ORCH-010 — Ограничить continuous run по расходу контекста
+- Completed: 2026-08-30.
+- Result: added the initial `--max-used-percent` account rate-limit guard with
+  fail-closed behavior and no active-turn interruption. Checks: repeated race
+  tests, full tests, vet, build, and diff check. Superseded by ORCH-014.
 
-- Завершено: 2026-08-30.
-- Результат: schema установленного App Server подтвердила доступность как
-  `thread/tokenUsage/updated` с token usage и context window, так и более
-  подходящего для continuous run запроса `account/rateLimits/read` с primary и
-  secondary `usedPercent`. Добавлен флаг `--max-used-percent N`: перед каждым
-  goal он проверяет наибольший расход аккаунтной квоты, штатно останавливается со
-  статусом `limit_reached` до создания нового thread и fail-closed завершает
-  запуск при недоступности данных. Текущий turn не прерывается. Protocol adapter,
-  fake CLI tests и README обновлены. Проверки: `go test -race -count=10
-  ./internal/codex ./internal/cli`; `go test ./...`; `go vet ./...`; `go build
-  ./cmd/orchestrator`; `git diff --check`.
+### ORCH-011 — Identify projects and store runtime metadata by current root
 
-### ORCH-011 — Перевести идентификацию и runtime metadata на текущий проект
+- Completed: 2026-08-30.
+- Result: added canonical Git/non-Git root resolution with symlink handling,
+  display names, stable path hashes, current-directory status, and isolated
+  state/log/lock layout. Checks: repeated race tests, full tests, vet, build, and
+  diff check.
 
-- Завершено: 2026-08-30.
-- Результат: добавлена единая идентификация проекта по canonical Git root либо
-  canonical non-Git directory с разрешением symlink; basename используется для
-  отображения, а устойчивый hash абсолютного пути — как внутренний project ID.
-  State, lifecycle logs и locks независимо хранятся в
-  `~/.donext/{state,logs,locks}` по project ID; прежний flat/XDG state безопасно
-  игнорируется без неявной миграции. `status` переведён на проект текущей
-  директории и показывает canonical repository, project ID, lock и recovery
-  state. README и тесты обновлены для Git root, non-Git, symlink, одинаковых
-  basename, layout, locking и recovery. Проверки: `go test -race -count=10
-  ./internal/project ./internal/state ./internal/cli`; `go test ./...`; `go vet
-  ./...`; `go build ./cmd/orchestrator`; `git diff --check`.
+### ORCH-011A — Store runtime metadata inside each project
 
-### ORCH-011A — Хранить runtime metadata внутри проекта
+- Completed: 2026-08-30.
+- Result: moved state, logs, and locks to `<canonical-root>/.donext`, ignored the
+  previous global layout, and excluded `.donext` from dirty-state checks. Checks:
+  repeated race tests, full tests, vet, build, and diff check.
 
-- Завершено: 2026-08-30.
-- Результат: state, lifecycle logs и locks перенесены в
-  `<canonical-project-root>/.donext/{state,logs,locks}`. Запуск из вложенной
-  директории или через symlink использует `.donext` canonical Git/non-Git root;
-  прежний `~/.donext` не читается и не мигрирует автоматически. Служебная папка
-  исключена из проверки dirty Git state и добавлена в `.gitignore` этого
-  репозитория. README и тесты обновлены. Проверки: `go test -race -count=10
-  ./internal/state ./internal/project ./internal/cli`; `go test ./...`; `go vet
-  ./...`; `go build ./cmd/orchestrator`; `git diff --check`.
+### ORCH-012 — Make `donext` stateless and remove user configuration
 
-### ORCH-012 — Сделать CLI `donext` stateless и удалить пользовательский config
+- Completed: 2026-08-30.
+- Result: renamed the binary to `donext`, switched to current-directory execution,
+  retained only `status`, removed YAML/project registries, and added validated
+  approval/sandbox flags and concrete dry-run output. Checks: repeated race tests,
+  full tests, vet, build, diff check, and manual CLI checks.
 
-- Завершено: 2026-08-30.
-- Результат: бинарник и usage переименованы в `donext`, основной запуск переведён
-  на текущую директорию без `run <project>`, а `status` оставлен единственной
-  подкомандой. YAML config, список projects, старый binary entrypoint и config
-  examples удалены; App Server всегда запускается командой `codex` из `PATH`.
-  Добавлены и проверены flags `--once`, `--dry-run`, `--approval-policy` и
-  `--sandbox` с defaults `never` и `workspace-write`; dry-run показывает
-  конкретную команду и effective параметры. Fake CLI tests и README обновлены.
-  Проверки: `go test -race -count=10 ./internal/cli`; `go test ./...`; `go vet
-  ./...`; `go build ./cmd/donext`; `git diff --check`; ручные help, status,
-  dry-run и invalid-policy проверки без запуска App Server.
+### ORCH-013 — Unify prompt sources under `--prompt`
 
-### ORCH-013 — Объединить способы задания prompt в `--prompt`
+- Completed: 2026-08-30.
+- Result: added literal, `@FILE`, and redirected-stdin prompt sources with early
+  validation and a built-in roadmap prompt. Prompts remain absent from state and
+  logs. Checks: repeated race tests, full tests, vet, build, and diff check.
 
-- Завершено: 2026-08-30.
-- Результат: добавлен единый `--prompt VALUE` с однозначными источниками: literal
-  text, обязательный файл через `@PATH` и перенаправленный stdin через `-`; наличие
-  одноимённого файла не меняет literal text. Без flag используется встроенный
-  roadmap prompt с правилом одного шага и `ORCHESTRATOR_NO_WORK`. Пустой prompt,
-  отсутствующий или нечитаемый файл и terminal stdin диагностируются до запуска
-  App Server; пользовательский prompt не сохраняется в state и lifecycle logs.
-  README и CLI usage обновлены. Проверки: `go test -race -count=10
-  ./internal/cli`; `go test ./...`; `go vet ./...`; `go build ./cmd/donext`;
-  `git diff --check`.
+### ORCH-015 — Complete documentation and end-to-end checks for the new CLI
 
-### ORCH-015 — Завершить документацию и end-to-end проверку нового CLI
+- Completed: 2026-08-30.
+- Result: rewrote documentation for `cd project && donext`, stateless behavior,
+  `AGENTS.md`, prompt sources, project-local state, status, stopping, and weekly
+  budget. Fixed `--help` exit status and manually checked the CLI matrix. Checks:
+  repeated race tests, full tests, vet, build, and diff check.
 
-- Завершено: 2026-08-30.
-- Результат: README полностью переведён на сценарий `cd project && donext` и
-  описывает stateless-модель, автоматическое применение `AGENTS.md`, единый
-  `--prompt`, project-local `.donext`, `status`, условия остановки и недельный
-  бюджет. Устаревшие config examples отсутствуют, реальный App Server smoke test
-  оставлен явно opt-in. Ручная проверка без запуска Codex выявила и исправила
-  ненулевой exit code для `--help`; добавлен regression test. Вручную проверены
-  help, idle status, dry-run, удалённый `--config`, конфликт `--once`/`--dry-run`
-  и неверный budget. Проверки: `go test -race -count=10 ./internal/cli`; `go test
-  ./...`; `go vet ./...`; `go build ./cmd/donext`; `git diff --check`; ручная
-  CLI-матрица на временном non-Git проекте.
+### ORCH-016 — Associate threads with Codex Desktop projects
 
-### ORCH-016 — Привязывать thread к проекту Codex Desktop
+- Completed: 2026-08-30.
+- Result: added paginated `project/list`; canonical-root matching with symlink
+  resolution; and `projectId` in each `thread/start`. No-match runs remain
+  unassigned with a warning; protocol errors and ambiguity stop before thread
+  creation. Updated README and protocol spike. Checks: repeated race tests for
+  Codex/CLI, full tests, vet, build, and diff check.
 
-- Завершено: 2026-08-30.
-- Результат: App Server adapter пагинированно читает `project/list`;
-  `donext` один раз за запуск сопоставляет canonical project root с roots
-  существующих проектов Desktop с разрешением symlink и передаёт
-  найденный `projectId` в каждый `thread/start`. Отсутствие совпадения
-  оставляет thread непривязанным с предупреждением; protocol error и
-  неоднозначные roots останавливаются до создания thread. README и
-  protocol spike обновлены. Проверки: `go test -race -count=10
-  ./internal/codex ./internal/cli`; `go test ./...`; `go vet ./...`; `go build
-  ./cmd/donext`; `git diff --check`.
+### ORCH-017 — Prepare the repository for GitHub publication
+
+- Completed: 2026-08-30.
+- Result: added the MIT License, Keep a Changelog-compatible changelog,
+  contribution and security policies, GitHub Actions CI, a pull request template,
+  and Dependabot configuration. Rewrote all Markdown documentation in English
+  and expanded README with verified Codex prerequisites, `go install`, PATH
+  troubleshooting, quick start, limitations, and project links. An isolated
+  install produced a working standalone binary, so no redundant `install.sh`
+  was added. Checks: isolated `go install`; tests, vet, and build under Go
+  1.23.12; `go test -race ./...`; full tests; vet; build; diff check; and a
+  repository-wide Cyrillic scan of Markdown files.

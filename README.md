@@ -1,40 +1,81 @@
 # donext
 
-`donext` — локальный stateless CLI поверх установленного Codex App Server. Он
-последовательно выполняет roadmap проекта из текущей директории: для каждого
-шага создаёт новый persisted Codex thread и ждёт его реального terminal event.
-Пользовательский config, реестр проектов и собственная копия истории не нужны.
+[![CI](https://github.com/albertsultanov/donext/actions/workflows/ci.yml/badge.svg)](https://github.com/albertsultanov/donext/actions/workflows/ci.yml)
+[![Go version](https://img.shields.io/github/go-mod/go-version/albertsultanov/donext)](go.mod)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Требования и установка
+`donext` is a local, stateless CLI built on the installed Codex App Server. It
+runs the roadmap in the current project sequentially, creating a new persisted
+Codex thread for every step and waiting for its real terminal protocol event.
+There is no user configuration, global project registry, or duplicate transcript.
 
-- Go 1.25+;
-- `codex` в `PATH` с действующей авторизацией;
-- проект с canonical `ROADMAP.md` и правилами выбора следующего шага;
-- опциональный `AGENTS.md` с инструкциями проекта.
+## Requirements
 
-Соберите бинарник локально или установите его в `GOBIN`:
+- macOS or Linux;
+- Go 1.23 or newer;
+- a current, authenticated `codex` executable in `PATH`;
+- a project with a canonical `ROADMAP.md` that defines how to select its next step;
+- optionally, an `AGENTS.md` with project-specific instructions.
+
+Windows is not currently supported because project locking uses Unix `flock`.
+
+## Installation
+
+### 1. Install Codex CLI
+
+Follow the [official Codex CLI documentation](https://learn.chatgpt.com/docs/codex/cli).
+The standalone installer for macOS and Linux is:
 
 ```sh
-go build -o donext ./cmd/donext
-# или
-go install github.com/albertsultanov/donext/cmd/donext@latest
+curl -fsSL https://chatgpt.com/codex/install.sh | sh
+codex
 ```
 
-Основной сценарий всегда начинается в нужном проекте:
+On first launch, sign in with ChatGPT or another available authentication method.
+Confirm that the executable is available:
+
+```sh
+codex --version
+```
+
+### 2. Install donext
+
+The standard Go installation is sufficient; no separate installer is required:
+
+```sh
+go install github.com/albertsultanov/donext/cmd/donext@latest
+donext --help
+```
+
+If your shell cannot find `donext`, add the Go binary directory to `PATH`:
+
+```sh
+export PATH="$(go env GOPATH)/bin:$PATH"
+```
+
+To install the current checkout instead of the published version:
+
+```sh
+git clone https://github.com/albertsultanov/donext.git
+cd donext
+go install ./cmd/donext
+```
+
+## Quick start
+
+Run `donext` from the project you want it to manage:
 
 ```sh
 cd /path/to/project
 donext
 ```
 
-`donext` не читает и не парсит roadmap сам. Он запускает Codex с canonical root
-текущего Git-репозитория (для non-Git директории — с canonical текущей
-директорией) и встроенным prompt, который поручает Codex выполнить ровно первый
-незавершённый шаг. Codex автоматически обнаруживает применимые `AGENTS.md` по
-обычным правилам; CLI не копирует их содержимое в prompt и не требует отдельной
-настройки.
+`donext` does not parse the roadmap itself. It starts Codex with the canonical
+Git root, or the canonical current directory for a non-Git project, and asks
+Codex to complete exactly the first unfinished step. Codex discovers applicable
+`AGENTS.md` files through its normal rules.
 
-## Команды и режимы
+## Commands and modes
 
 ```text
 donext [--once|--dry-run] [--prompt TEXT|@FILE|-]
@@ -43,87 +84,79 @@ donext [--once|--dry-run] [--prompt TEXT|@FILE|-]
 donext status
 ```
 
-Примеры:
+Examples:
 
 ```sh
-donext                         # выполнять шаги до условия остановки
-donext --once                  # выполнить не более одного шага
-donext --dry-run               # показать запуск, не запуская Codex
-donext --prompt 'Выполни шаг ORCH-123'
+donext                         # run until a stop condition is reached
+donext --once                  # run no more than one roadmap step
+donext --dry-run               # print the effective launch without starting Codex
+donext --prompt 'Complete step ORCH-123'
 donext --prompt @prompt.md
-printf 'Выполни шаг ORCH-123\n' | donext --prompt -
+printf 'Complete step ORCH-123\n' | donext --prompt -
 donext --approval-policy never --sandbox workspace-write
 donext --weekly-usage-budget 5
 donext status
 ```
 
-Без `--once` после каждого успешно завершённого goal создаётся новый persisted
-thread. Цикл останавливается при `ORCHESTRATOR_NO_WORK` в отдельной строке
-финального ответа, failure, interruption, интерактивном запросе или достижении
-недельного бюджета. Failure и interruption возвращают ненулевой код; штатные
-`completed`, `no_work` и `weekly_usage_budget_reached` — нулевой.
+Without `--once`, a new persisted thread is created after each successful goal.
+The loop stops on a standalone `ORCHESTRATOR_NO_WORK` final response, failure,
+interruption, an interactive request, or the weekly usage budget. Failures and
+interruptions return a nonzero exit status; `completed`, `no_work`, and
+`weekly_usage_budget_reached` are successful terminal states.
 
-`--dry-run` показывает canonical project path, точную команду
-`codex app-server --stdio`, effective approval policy, sandbox и prompt. Он не
-создаёт `.donext`, не запускает App Server и не читает account rate limits.
-`--once` и `--dry-run` взаимоисключающие.
+`--dry-run` prints the canonical project path, exact App Server command,
+effective approval policy, sandbox, and prompt. It does not create `.donext`,
+start App Server, or read account rate limits. `--once` and `--dry-run` are
+mutually exclusive.
 
-### Prompt
+### Prompt sources
 
-`--prompt VALUE` однозначно задаёт источник:
+`--prompt VALUE` has unambiguous source rules:
 
-- обычное значение — literal text, даже если существует одноимённый файл;
-- `@PATH` — содержимое обязательного читаемого файла;
-- `-` — перенаправленный stdin.
+- any regular value is literal text, even if a file has the same name;
+- `@PATH` reads a required file;
+- `-` reads redirected standard input.
 
-Пустой prompt, отсутствующий или нечитаемый `@FILE` и интерактивный terminal
-stdin отклоняются до запуска App Server. Без флага используется встроенный
-roadmap prompt с правилом одного шага и маркером `ORCHESTRATOR_NO_WORK`. Prompt
-не сохраняется в `.donext` и не попадает в lifecycle logs.
+Empty prompts, missing or unreadable files, and terminal stdin are rejected
+before App Server starts. Without the flag, the built-in roadmap prompt is used.
+Prompts are never stored in `.donext` or lifecycle logs.
 
-### Policies и интерактивные запросы
+### Permissions and interactive requests
 
-В каждый `thread/start` явно передаются безопасные defaults:
+Every `thread/start` explicitly receives safe defaults:
 
-- `--approval-policy never` (также: `on-request`, `untrusted`);
-- `--sandbox workspace-write` (также: `read-only`, `danger-full-access`).
+- `--approval-policy never` (also: `on-request`, `untrusted`);
+- `--sandbox workspace-write` (also: `read-only`, `danger-full-access`).
 
-App Server всегда запускается как `codex app-server --stdio` из `PATH`.
-Approval и user-input requests отклоняются, активный turn прерывается, а CLI
-завершается с ошибкой: unattended orchestration не отвечает на них за
-пользователя.
+App Server always starts as `codex app-server --stdio` from `PATH`. Approval and
+user-input requests are rejected, the active turn is interrupted, and unattended
+orchestration exits with an error rather than answering on the user's behalf.
 
-### Codex Desktop project
+### Codex Desktop projects
 
-После запуска App Server `donext` читает `project/list` и ищет единственный
-проект Desktop, один из roots которого совпадает с canonical root текущего
-проекта (включая разрешение symlink). Его `projectId` передаётся в каждый
-`thread/start`, поэтому persisted thread отображается под соответствующим
-проектом Codex Desktop, а не только в Recents.
+After App Server starts, `donext` calls `project/list` and finds the single
+Desktop project whose root matches the current canonical project root, including
+symlink resolution. Its `projectId` is passed to each `thread/start`, so persisted
+threads appear under the corresponding Codex Desktop project.
 
-`donext` не создаёт и не изменяет проекты Desktop. Если совпадения нет, запуск
-продолжается с предупреждением и thread остаётся непривязанным. Ошибка
-`project/list` или несколько Desktop projects с одним root останавливают запуск
-до создания thread, чтобы не получить неверную привязку.
+`donext` never creates or modifies Desktop projects. If no project matches, it
+continues with a warning and leaves the thread unassigned. A `project/list` error
+or multiple projects with the same root stops the run before creating a thread.
 
-### Недельный бюджет
+### Weekly usage budget
 
-`--weekly-usage-budget N`, где `N` от 1 до 100, разрешает текущему процессу
-потратить не более `N` процентных пунктов недельной квоты. Перед первым goal CLI
-фиксирует baseline единственного окна длительностью 10080 минут, а перед каждым
-следующим сравнивает текущий расход с baseline. При достижении бюджета новый
-thread не создаётся; процесс штатно завершается со статусом
-`weekly_usage_budget_reached` и печатает baseline, текущий расход, delta и
-budget.
+`--weekly-usage-budget N`, where `N` is 1 through 100, allows the current process
+to consume at most `N` percentage points of the weekly quota. Before the first
+goal, the CLI records the single 10,080-minute window as its baseline. Before
+later goals, it compares current usage with that baseline. Reaching the budget
+stops successfully before another thread is created.
 
-Активный turn не прерывается, поэтому завершившийся goal может превысить бюджет.
-Если недельное окно отсутствует, неоднозначно, сбросилось или содержит аномальные
-значения, запуск останавливается с ошибкой (fail-closed). В режиме `--once`
-baseline проверяется, но повторной проверки после единственного goal нет.
+The active turn is never interrupted, so a completed goal can overshoot the
+budget. Missing, ambiguous, reset, or anomalous weekly-window data fails closed.
 
-## Project state, locking и recovery
+## Project state, locking, and recovery
 
-Runtime metadata находится только внутри canonical project root:
+Runtime metadata exists only under the canonical project root:
 
 ```text
 .donext/
@@ -132,27 +165,21 @@ Runtime metadata находится только внутри canonical project 
   locks/
 ```
 
-Это и означает stateless на уровне CLI: между запусками нет глобального списка
-проектов или пользовательского config; нужный проект определяется текущей
-директорией. Минимальный project-local state нужен только для lifecycle,
-locking и recovery. State записывается атомарно, а lifecycle logs не содержат
-prompt, transcript или command output.
+State is written atomically, and lifecycle logs contain metadata only—never the
+prompt, transcript, reasoning, or command output. A project lock prevents two
+runs for the same project while allowing different projects to run independently.
+After a crash, the next run reports stale state and creates a new thread.
 
-Project lock не допускает два одновременных запуска одного проекта, но не мешает
-параллельным запускам в разных проектах. После аварийно прерванного процесса
-следующий запуск сообщает о stale state и создаёт новый thread. Dirty или
-non-Git проект не блокируется; CLI только выводит предупреждение, а `.donext`
-исключается из собственной проверки dirty state.
+Dirty and non-Git projects are allowed with a warning. `.donext` is excluded from
+the CLI's own dirty-worktree check.
 
-`donext status` ничего не запускает и показывает для текущего проекта canonical
-repository, устойчивый project ID, effective status, lock, последние thread/turn
-ID и время обновления. Persisted `running` без живого lock отображается как
-`stale`; при отсутствии state отображается `idle`.
+`donext status` does not start Codex. It prints the current canonical repository,
+stable local project ID, effective status, lock state, latest thread and turn IDs,
+and update time. Persisted `running` state without a live lock is shown as `stale`.
 
-## Проверка и opt-in smoke test
+## Development and opt-in smoke test
 
-Автоматические проверки не запускают реальный Codex и не расходуют
-пользовательские лимиты:
+Normal checks do not run real Codex or consume user quota:
 
 ```sh
 go test ./...
@@ -160,10 +187,24 @@ go vet ./...
 go build ./cmd/donext
 ```
 
-Реальный App Server smoke test не входит в обычный test suite. Запускайте его
-только отдельно и осознанно: он создаст persisted Codex thread и потратит квоту.
+The real App Server smoke test is intentionally manual. It creates a persisted
+Codex thread and consumes quota:
 
 ```sh
 cd /path/to/disposable-smoke-project
 /absolute/path/to/donext --once --approval-policy never --sandbox read-only
 ```
+
+## Project status
+
+`donext` does not yet have a tagged stable release. The App Server adapter is
+verified against the installed Codex schema and isolated in `internal/codex`.
+An incompatible protocol change in a future Codex release may require an update.
+
+See [CHANGELOG.md](CHANGELOG.md) for notable changes,
+[CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, and
+[SECURITY.md](SECURITY.md) for private vulnerability reporting.
+
+## License
+
+This project is available under the [MIT License](LICENSE).
