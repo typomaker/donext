@@ -197,7 +197,7 @@ type projectSpec struct {
 	ID, Name, Repository, Prompt, ApprovalPolicy, Sandbox, DesktopProjectID string
 }
 
-const defaultPrompt = "Выполни первый незавершённый шаг из ROADMAP.md полностью. За этот запуск выполни ровно один шаг. Если текущих шагов нет, ответь отдельной строкой ORCHESTRATOR_NO_WORK.\n"
+const defaultPrompt = "Выполни первый незавершённый шаг из ROADMAP.md полностью. За этот запуск выполни ровно один шаг. Если текущих шагов нет, ответь отдельной строкой ORCHESTRATOR_NO_WORK. Если шаг невозможно завершить из-за окружения, прав, обязательной провалившейся проверки или необходимости действия пользователя, объясни причину и ответь отдельной строкой ORCHESTRATOR_BLOCKED.\n"
 
 func runCommand(options runOptions, stdout, stderr io.Writer) int {
 	identity, err := projectid.Resolve(".")
@@ -495,15 +495,23 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 			if desiredStatus != "" {
 				status = desiredStatus
 			}
-			if status == "completed" && containsMarkerLine(finalOutput, "ORCHESTRATOR_NO_WORK") {
-				status = "no_work"
+			if status == "completed" {
+				if containsMarkerLine(finalOutput, "ORCHESTRATOR_BLOCKED") {
+					status = "blocked"
+				} else if containsMarkerLine(finalOutput, "ORCHESTRATOR_NO_WORK") {
+					status = "no_work"
+				}
 			}
 			if err := store.Write(state.State{Project: projectID, Status: status, ThreadID: threadID, TurnID: turnID}); err != nil {
 				printTerminal(stdout, projectName, threadID, "failed")
 				fmt.Fprintf(stderr, "write terminal state: %v\n", err)
 				return "failed", false
 			}
-			logLifecycle(store, stderr, projectID, "turn", "completed", map[string]string{"thread": threadID, "turn": turnID, "status": status})
+			lifecycleEvent := "completed"
+			if status == "blocked" {
+				lifecycleEvent = "blocked"
+			}
+			logLifecycle(store, stderr, projectID, "turn", lifecycleEvent, map[string]string{"thread": threadID, "turn": turnID, "status": status})
 			printTerminal(stdout, projectName, threadID, status)
 			printUsageSummary(ctx, client, tokenUsage, weeklyBaseline, weeklyBudget, stdout, stderr)
 			if status == "completed" || status == "no_work" {

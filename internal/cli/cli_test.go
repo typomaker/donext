@@ -475,6 +475,9 @@ func TestRunOnceCompleted(t *testing.T) {
 	if fake.threadStarts != 1 || fake.turnStarts != 1 || fake.closed != 1 || fake.prompt != defaultPrompt {
 		t.Fatalf("fake=%+v", fake)
 	}
+	if !strings.Contains(fake.prompt, "ORCHESTRATOR_BLOCKED") {
+		t.Fatalf("default prompt lacks blocked contract: %q", fake.prompt)
+	}
 	if fake.threadOpts.CWD == "" || fake.threadOpts.ProjectID != "desktop-alpha" || fake.projectListReads != 1 || fake.name != "donext alpha 2026-08-30 12:33:36 +03:00 next roadmap step" {
 		t.Fatalf("opts=%+v name=%q", fake.threadOpts, fake.name)
 	}
@@ -737,6 +740,35 @@ func TestRunOnceRecognizesNoWorkOnlyInFinalAgentOutput(t *testing.T) {
 	code := Run(runArgs(t, "--once"), &stdout, &stderr)
 	if code != 0 || !strings.Contains(stdout.String(), "status: no_work\n") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+}
+
+func TestRunBlockedStopsContinuousExecutionAndLogsMetadata(t *testing.T) {
+	repository := fixtureProject(t)
+	identity := fixtureIdentity(t, repository)
+	fake := &fakeCodex{events: make(chan codex.Event, 3)}
+	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "other", TurnID: "turn-456", Text: "ORCHESTRATOR_BLOCKED"}
+	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "loopback is unavailable\n\nORCHESTRATOR_BLOCKED\n"}
+	fake.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: "thread-123", TurnID: "turn-456", Status: "completed"}
+	close(fake.events)
+	withFakeCodex(t, fake)
+
+	var stdout, stderr bytes.Buffer
+	code := Run(runArgsFor(t, repository), &stdout, &stderr)
+	if code != 1 || fake.threadStarts != 1 || !strings.Contains(stdout.String(), "status: blocked\n") {
+		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
+	}
+	current, err := state.New(state.ProjectDir(identity.Repository)).Read(identity.ID)
+	if err != nil || current.Status != "blocked" {
+		t.Fatalf("state=%+v err=%v", current, err)
+	}
+	logData, err := os.ReadFile(filepath.Join(state.ProjectDir(identity.Repository), "logs", identity.ID+".lifecycle.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	logText := string(logData)
+	if !strings.Contains(logText, "component=turn event=blocked") || strings.Contains(logText, "loopback") {
+		t.Fatalf("lifecycle log=%q", logText)
 	}
 }
 

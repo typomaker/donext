@@ -51,6 +51,16 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-021 — Stop cleanly when a managed goal is blocked
+
+- Completed: 2026-08-30.
+- Result: added the standalone `ORCHESTRATOR_BLOCKED` final-response contract;
+  blocked state and terminal output; a metadata-only `event=blocked` lifecycle
+  record; nonzero exit; and continuous-loop termination. The default prompt,
+  README, and changelog document environment, permission, gate, and user-action
+  blockers. Checks: focused CLI race tests; full race tests; full tests; vet;
+  build; and diff check.
+
 ### ORCH-020 — Timestamp managed thread names
 
 - Completed: 2026-08-30.

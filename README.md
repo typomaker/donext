@@ -102,7 +102,11 @@ Without `--once`, a new persisted thread is created after each successful goal.
 Each thread is named with its project and local launch timestamp, for example
 `donext my-project 2026-08-30 12:33:36 +03:00 next roadmap step`.
 The loop stops on a standalone `ORCHESTRATOR_NO_WORK` final response, failure,
-interruption, an interactive request, or the weekly usage budget. Failures and
+interruption, an interactive request, a standalone `ORCHESTRATOR_BLOCKED` final
+response, or the weekly usage budget. A blocked response is used when the goal
+cannot be completed because of the environment, permissions, a mandatory failed
+gate, or required user action. It records `blocked`, returns a nonzero exit code,
+and never starts another goal. Failures and
 interruptions return a nonzero exit status; `completed`, `no_work`, and
 `weekly_usage_budget_reached` are successful terminal states.
 
