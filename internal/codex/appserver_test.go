@@ -136,10 +136,25 @@ func TestFullLifecycleAndRouting(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.send(map[string]any{"method": "unrecognized/future", "params": map[string]any{"x": 1}})
+	f.send(map[string]any{"method": "item/started", "params": map[string]any{"threadId": "th-1", "turnId": "tu-1", "startedAtMs": 1, "item": map[string]any{"id": "cmd-1", "type": "commandExecution", "command": "go test ./...", "commandActions": []any{}, "cwd": "/repo", "status": "inProgress"}}})
+	f.send(map[string]any{"method": "item/completed", "params": map[string]any{"threadId": "th-1", "turnId": "tu-1", "completedAtMs": 1, "item": map[string]any{"id": "reason-1", "type": "reasoning", "summary": []string{"Inspect tests"}, "content": []string{}}}})
+	f.send(map[string]any{"method": "item/completed", "params": map[string]any{"threadId": "th-1", "turnId": "tu-1", "completedAtMs": 1, "item": map[string]any{"id": "patch-1", "type": "fileChange", "status": "completed", "changes": []map[string]any{{"path": "main.go", "kind": "update", "diff": ""}}}}})
 	f.send(map[string]any{"method": "item/completed", "params": map[string]any{"threadId": "th-1", "turnId": "tu-1", "completedAtMs": 1, "item": map[string]any{"id": "item-1", "type": "agentMessage", "text": "done"}}})
 	f.send(map[string]any{"method": "thread/tokenUsage/updated", "params": map[string]any{"threadId": "th-1", "turnId": "tu-1", "tokenUsage": map[string]any{"last": map[string]any{"inputTokens": 80, "cachedInputTokens": 20, "outputTokens": 10, "reasoningOutputTokens": 4, "totalTokens": 90}, "total": map[string]any{"inputTokens": 80, "cachedInputTokens": 20, "outputTokens": 10, "reasoningOutputTokens": 4, "totalTokens": 90}, "modelContextWindow": 1000}}})
 	f.send(map[string]any{"method": "turn/completed", "params": map[string]any{"threadId": "th-1", "turn": map[string]any{"id": "tu-1", "status": "interrupted"}}})
 	e := <-c.Events()
+	if e.Kind != CommandStarted || e.Text != "go test ./..." {
+		t.Fatalf("event=%+v", e)
+	}
+	e = <-c.Events()
+	if e.Kind != ReasoningCompleted || e.Text != "Inspect tests" {
+		t.Fatalf("event=%+v", e)
+	}
+	e = <-c.Events()
+	if e.Kind != FileChangeCompleted || len(e.Paths) != 1 || e.Paths[0] != "main.go" {
+		t.Fatalf("event=%+v", e)
+	}
+	e = <-c.Events()
 	if e.Kind != AgentMessageCompleted || e.Text != "done" || e.TurnID != "tu-1" {
 		t.Fatalf("event=%+v", e)
 	}

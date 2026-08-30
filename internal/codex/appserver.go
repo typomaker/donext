@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"sync"
 )
 
@@ -348,17 +349,47 @@ func (a *AppServer) route(msg wireMessage) {
 		a.emit(Event{Kind: ServerRequest, Method: msg.Method, RequestID: *msg.ID, ThreadID: scope.ThreadID, TurnID: scope.TurnID, Params: msg.Params})
 		return
 	}
-	if msg.Method == "item/completed" {
+	if msg.Method == "item/started" || msg.Method == "item/completed" {
 		var p struct {
 			ThreadID string `json:"threadId"`
 			TurnID   string `json:"turnId"`
 			Item     struct {
-				Type string `json:"type"`
-				Text string `json:"text"`
+				Type    string   `json:"type"`
+				Text    string   `json:"text"`
+				Command string   `json:"command"`
+				Summary []string `json:"summary"`
+				Content []string `json:"content"`
+				Changes []struct {
+					Path string `json:"path"`
+				} `json:"changes"`
 			} `json:"item"`
 		}
-		if json.Unmarshal(msg.Params, &p) == nil && p.Item.Type == "agentMessage" {
+		if json.Unmarshal(msg.Params, &p) != nil {
+			return
+		}
+		switch {
+		case msg.Method == "item/completed" && p.Item.Type == "agentMessage":
 			a.emit(Event{Kind: AgentMessageCompleted, Method: msg.Method, ThreadID: p.ThreadID, TurnID: p.TurnID, Text: p.Item.Text})
+		case msg.Method == "item/completed" && p.Item.Type == "reasoning":
+			text := strings.Join(p.Item.Summary, "\n")
+			if text == "" {
+				text = strings.Join(p.Item.Content, "\n")
+			}
+			if text != "" {
+				a.emit(Event{Kind: ReasoningCompleted, Method: msg.Method, ThreadID: p.ThreadID, TurnID: p.TurnID, Text: text})
+			}
+		case msg.Method == "item/started" && p.Item.Type == "commandExecution":
+			a.emit(Event{Kind: CommandStarted, Method: msg.Method, ThreadID: p.ThreadID, TurnID: p.TurnID, Text: p.Item.Command})
+		case msg.Method == "item/completed" && p.Item.Type == "fileChange":
+			paths := make([]string, 0, len(p.Item.Changes))
+			for _, change := range p.Item.Changes {
+				if change.Path != "" {
+					paths = append(paths, change.Path)
+				}
+			}
+			if len(paths) > 0 {
+				a.emit(Event{Kind: FileChangeCompleted, Method: msg.Method, ThreadID: p.ThreadID, TurnID: p.TurnID, Paths: paths})
+			}
 		}
 		return
 	}

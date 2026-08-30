@@ -697,9 +697,14 @@ func TestRunPrintsSessionProgressModelResponseAndUsage(t *testing.T) {
 	if code := Run(runArgs(t, "--once"), &stdout, &stderr); code != 0 {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	for _, want := range []string{"starting new Codex session", "session started: thread=thread-123", "model turn started: turn=turn-456", "> implemented the step\n"} {
+	for _, want := range []string{"> implemented the step\n"} {
 		if !strings.Contains(stderr.String(), want) {
 			t.Fatalf("stderr=%q missing %q", stderr.String(), want)
+		}
+	}
+	for _, hidden := range []string{"starting new Codex session", "session started:", "model turn started:"} {
+		if strings.Contains(stderr.String(), hidden) {
+			t.Fatalf("stderr=%q unexpectedly contains %q", stderr.String(), hidden)
 		}
 	}
 	if strings.Contains(stderr.String(), "model response:") {
@@ -713,7 +718,10 @@ func TestRunPrintsSessionProgressModelResponseAndUsage(t *testing.T) {
 }
 
 func TestRunVerbosePrintsLabeledRequestAndMultilineResponse(t *testing.T) {
-	fake := &fakeCodex{events: make(chan codex.Event, 2)}
+	fake := &fakeCodex{events: make(chan codex.Event, 5)}
+	fake.events <- codex.Event{Kind: codex.ReasoningCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "inspect code\nchoose fix"}
+	fake.events <- codex.Event{Kind: codex.CommandStarted, ThreadID: "thread-123", TurnID: "turn-456", Text: "go test ./..."}
+	fake.events <- codex.Event{Kind: codex.FileChangeCompleted, ThreadID: "thread-123", TurnID: "turn-456", Paths: []string{"internal/cli/cli.go"}}
 	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "first line\n\nthird line"}
 	fake.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: "thread-123", TurnID: "turn-456", Status: "completed"}
 	close(fake.events)
@@ -723,7 +731,7 @@ func TestRunVerbosePrintsLabeledRequestAndMultilineResponse(t *testing.T) {
 	if code := Run(runArgs(t, "--once", "-v", "--prompt", "VERBOSE_REQUEST"), &stdout, &stderr); code != 0 {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	for _, want := range []string{"request:\n> VERBOSE_REQUEST\n", "response:\n> first line\n>\n> third line\n"} {
+	for _, want := range []string{"# starting new Codex session\n", "# session started: thread=thread-123\n", "# model turn started: turn=turn-456\n", "> request:\n> VERBOSE_REQUEST\n", "? inspect code\n? choose fix\n", "$ go test ./...\n", "~ internal/cli/cli.go\n", "> response:\n> first line\n>\n> third line\n"} {
 		if !strings.Contains(stderr.String(), want) {
 			t.Fatalf("stderr=%q missing %q", stderr.String(), want)
 		}

@@ -52,6 +52,17 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-034 — Show verbose model activity with typed markers
+
+- Completed: 2026-08-30.
+- Result: hid session/thread/turn progress outside verbose mode and routed the
+  installed App Server's verified item events into terminal-only activity output.
+  Verbose lines now use `#` for lifecycle, `?` for reasoning summaries, `$` for
+  command launches, `~` for changed paths, and `>` for model requests and
+  responses. Documented that summaries are not private chain of thought.
+  Checks: installed v0.151.0 schema generation; focused Codex/CLI race tests;
+  full race tests; vet; build; help output; and diff check.
+
 ### ORCH-033 — Present terminal markers as session exit codes
 
 - Completed: 2026-08-30.

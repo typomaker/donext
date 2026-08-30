@@ -9,6 +9,9 @@ after its first release.
 
 ### Changed
 
+- Hide session/thread/turn lifecycle progress by default. Verbose output now
+  marks lifecycle (`#`), reasoning summaries (`?`), command launches (`$`),
+  file changes (`~`), and model text (`>`) while keeping activity terminal-only.
 - Present terminal markers to Codex as session exit codes, require them on the
   final line only, and explicitly treat fixable execution failures as nonterminal.
 - Limit the built-in and appended prompt to exceptional terminal-marker rules;

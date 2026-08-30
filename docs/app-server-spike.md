@@ -79,6 +79,13 @@ breakdowns plus an optional `modelContextWindow`. The orchestrator uses the
 latest event for post-turn terminal statistics without persisting it as a
 transcript.
 
+For verbose live activity, the adapter routes verified v2 item notifications:
+`item/started` exposes `commandExecution.command`; completed `reasoning` items
+expose protocol-provided `summary` strings (with `content` as a compatibility
+fallback); and completed `fileChange` items expose changed paths. These details
+are printed only to the terminal and never persisted in lifecycle logs. They do
+not provide or reconstruct private chain-of-thought reasoning.
+
 ## Persistence and Codex Desktop
 
 App Server reported the standard session path under

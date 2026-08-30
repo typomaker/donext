@@ -186,15 +186,19 @@ ambiguous, reset, or anomalous weekly-window data fails closed.
 
 ### Live session output and token usage
 
-While a goal runs, `donext` reports new thread and turn IDs and prints each
-completed model message to the terminal with every line prefixed by `>`. The
-prompt is hidden and responses have no label by default. With `-v` or
-`--verbose`, both sides are printed as explicitly labeled `request:` and
-`response:` blocks. When the turn ends, the CLI prints input,
+While a goal runs, `donext` prints each completed model message to the terminal
+with every line prefixed by `>`. The prompt and session lifecycle are hidden and
+responses have no label by default. With `-v` or `--verbose`, requests and
+responses are explicitly labeled with `>`-prefixed lines, and live activity
+uses distinct markers:
+`#` for session lifecycle, `?` for available reasoning summaries, `$` for
+command launches, and `~` for files changed by patch operations. App Server
+does not expose the model's private chain of thought; the reasoning output is
+the summary supplied by the protocol. When the turn ends, the CLI prints input,
 cached input, output, reasoning, and total token counts. When App Server supplies
 a model context window, it also prints the latest request's context tokens and
-percentage used. Model messages are terminal-only and are never copied into
-state or lifecycle logs. Standalone orchestrator control markers are hidden from
+percentage used. Model messages and verbose activity are terminal-only and are
+never copied into state or lifecycle logs. Standalone orchestrator control markers are hidden from
 the terminal model output and are consumed only by the final-response handler.
 If removing those markers leaves no visible response, the CLI prints
 `> [response completed with no visible output]` to confirm that the model turn

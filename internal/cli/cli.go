@@ -51,8 +51,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	once := root.Bool("once", false, "run exactly one Codex session")
 	dryRun := root.Bool("dry-run", false, "show the concrete launch without starting Codex")
 	var verbose bool
-	root.BoolVar(&verbose, "v", false, "show model requests and label request/response output")
-	root.BoolVar(&verbose, "verbose", false, "show model requests and label request/response output")
+	root.BoolVar(&verbose, "v", false, "show session lifecycle and model activity")
+	root.BoolVar(&verbose, "verbose", false, "show session lifecycle and model activity")
 	approvalPolicy := root.String("approval-policy", "never", "Codex approval policy: never, on-request, or untrusted")
 	sandbox := root.String("sandbox", "workspace-write", "Codex sandbox: read-only, workspace-write, or danger-full-access")
 	weeklyUsageBudget := root.Int("weekly-usage-budget", 0, "weekly quota percentage points available to this run")
@@ -357,7 +357,9 @@ func validateSameWeeklyWindow(baseline, current codex.RateLimitWindow) error {
 
 func runGoal(ctx context.Context, client codex.Client, project projectSpec, store *state.Store, weeklyBaseline *codex.RateLimitWindow, weeklyBudget int, signals <-chan os.Signal, stdout, stderr io.Writer) (string, bool) {
 	projectID, projectName := project.ID, project.Name
-	fmt.Fprintln(stderr, "starting new Codex session")
+	if project.Verbose {
+		printMarkedLine(stderr, '#', "starting new Codex session")
+	}
 	threadID, err := client.StartThread(ctx, codex.ThreadOptions{CWD: project.Repository, ApprovalPolicy: project.ApprovalPolicy, Sandbox: project.Sandbox})
 	if err != nil {
 		_ = store.Write(state.State{Project: projectID, Status: "failed"})
@@ -366,7 +368,9 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 		fmt.Fprintf(stderr, "start thread: %v\n", err)
 		return "failed", false
 	}
-	fmt.Fprintf(stderr, "session started: thread=%s\n", threadID)
+	if project.Verbose {
+		printMarkedLine(stderr, '#', "session started: thread="+threadID)
+	}
 	logLifecycle(store, stderr, projectID, "thread", "started", map[string]string{"thread": threadID})
 	if err := store.Write(state.State{Project: projectID, Status: "running", ThreadID: threadID}); err != nil {
 		printTerminal(stdout, projectName, threadID, "failed")
@@ -396,7 +400,9 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 		fmt.Fprintf(stderr, "start turn: %v\n", err)
 		return "failed", false
 	}
-	fmt.Fprintf(stderr, "model turn started: turn=%s\n", turnID)
+	if project.Verbose {
+		printMarkedLine(stderr, '#', "model turn started: turn="+turnID)
+	}
 	logLifecycle(store, stderr, projectID, "turn", "started", map[string]string{"thread": threadID, "turn": turnID})
 	if err := store.Write(state.State{Project: projectID, Status: "running", ThreadID: threadID, TurnID: turnID}); err != nil {
 		printTerminal(stdout, projectName, threadID, "failed")
@@ -477,6 +483,20 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 				}
 				continue
 			}
+			if project.Verbose && event.Kind == codex.ReasoningCompleted {
+				printMarkedMessage(stderr, '?', event.Text)
+				continue
+			}
+			if project.Verbose && event.Kind == codex.CommandStarted {
+				printMarkedMessage(stderr, '$', event.Text)
+				continue
+			}
+			if project.Verbose && event.Kind == codex.FileChangeCompleted {
+				for _, path := range event.Paths {
+					printMarkedLine(stderr, '~', path)
+				}
+				continue
+			}
 			if event.Kind == codex.TokenUsageUpdated {
 				usage := event
 				tokenUsage = &usage
@@ -518,7 +538,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 
 func printModelMessage(w io.Writer, label, message string) {
 	if label != "" {
-		fmt.Fprintf(w, "%s:\n", label)
+		fmt.Fprintf(w, "> %s:\n", label)
 	}
 	message = strings.ReplaceAll(message, "\r\n", "\n")
 	message = strings.TrimSuffix(message, "\n")
@@ -529,6 +549,22 @@ func printModelMessage(w io.Writer, label, message string) {
 		}
 		fmt.Fprintf(w, "> %s\n", line)
 	}
+}
+
+func printMarkedMessage(w io.Writer, marker byte, message string) {
+	message = strings.ReplaceAll(message, "\r\n", "\n")
+	message = strings.TrimSuffix(message, "\n")
+	for _, line := range strings.Split(message, "\n") {
+		printMarkedLine(w, marker, line)
+	}
+}
+
+func printMarkedLine(w io.Writer, marker byte, line string) {
+	if line == "" {
+		fmt.Fprintf(w, "%c\n", marker)
+		return
+	}
+	fmt.Fprintf(w, "%c %s\n", marker, line)
 }
 
 func revealThreadInDesktop(threadID string) error {
@@ -636,7 +672,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "options:")
 	fmt.Fprintln(w, "  -v, --verbose")
-	fmt.Fprintln(w, "      show labeled model requests and responses")
+	fmt.Fprintln(w, "      show session lifecycle and model activity")
 	fmt.Fprintln(w, "  --approval-policy POLICY")
 	fmt.Fprintln(w, "      never (default), on-request, untrusted")
 	fmt.Fprintln(w, "  --sandbox MODE")

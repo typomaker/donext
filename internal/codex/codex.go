@@ -42,6 +42,9 @@ type EventKind string
 const (
 	TurnCompleted         EventKind = "turn_completed"
 	AgentMessageCompleted EventKind = "agent_message_completed"
+	ReasoningCompleted    EventKind = "reasoning_completed"
+	CommandStarted        EventKind = "command_started"
+	FileChangeCompleted   EventKind = "file_change_completed"
 	TokenUsageUpdated     EventKind = "token_usage_updated"
 	ServerRequest         EventKind = "server_request"
 )
@@ -64,6 +67,7 @@ type Event struct {
 	TurnID        string
 	Status        string
 	Text          string
+	Paths         []string
 	LastUsage     TokenUsage
 	TotalUsage    TokenUsage
 	ContextWindow *int64
