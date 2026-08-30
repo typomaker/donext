@@ -619,6 +619,12 @@ func warnGitState(repository string, stderr io.Writer) {
 func usage(w io.Writer) {
 	fmt.Fprintln(w, "usage: donext [--once|--dry-run] [--prompt TEXT|@FILE|-] [--approval-policy POLICY] [--sandbox MODE] [--weekly-usage-budget N]")
 	fmt.Fprintln(w, "       donext status")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "options:")
+	fmt.Fprintln(w, "  --approval-policy POLICY")
+	fmt.Fprintln(w, "      never (default), on-request, untrusted")
+	fmt.Fprintln(w, "  --sandbox MODE")
+	fmt.Fprintln(w, "      workspace-write (default), read-only, danger-full-access")
 }
 
 func validApprovalPolicy(value string) bool {

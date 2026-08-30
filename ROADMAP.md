@@ -51,6 +51,14 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-023 — List permission values in CLI help
+
+- Completed: 2026-08-30.
+- Result: `donext --help` now lists every supported approval policy and sandbox
+  mode with their defaults, and the README and changelog point users to the
+  discoverable CLI reference. Checks: focused CLI race tests; manual help
+  output; full race tests; full tests; vet; build; and diff check.
+
 ### ORCH-022 — Hide control markers from live model output
 
 - Completed: 2026-08-30.

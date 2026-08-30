@@ -14,6 +14,7 @@ after its first release.
 
 ### Added
 
+- Complete approval-policy and sandbox value lists in `donext --help`.
 - Live thread/turn progress, terminal-only model responses, and post-session
   token, context-window, and weekly-budget statistics.
 - Local launch timestamps with UTC offsets in managed Codex thread names.

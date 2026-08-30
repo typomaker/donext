@@ -84,6 +84,9 @@ donext [--once|--dry-run] [--prompt TEXT|@FILE|-]
 donext status
 ```
 
+Run `donext --help` to see all accepted approval policies and sandbox modes,
+including their defaults.
+
 Examples:
 
 ```sh

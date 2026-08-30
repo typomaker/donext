@@ -215,7 +215,17 @@ func TestRejectsRemovedProjectsCommand(t *testing.T) {
 func TestHelpReturnsSuccess(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"--help"}, &stdout, &stderr)
-	if code != 0 || !strings.Contains(stderr.String(), "usage: donext") {
+	help := stderr.String()
+	for _, want := range []string{
+		"usage: donext",
+		"--approval-policy POLICY\n      never (default), on-request, untrusted",
+		"--sandbox MODE\n      workspace-write (default), read-only, danger-full-access",
+	} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("help missing %q: %q", want, help)
+		}
+	}
+	if code != 0 {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 }
