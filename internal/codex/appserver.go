@@ -157,10 +157,7 @@ func newAppServer(ctx context.Context, t transport) (*AppServer, error) {
 	a := &AppServer{t: t, pending: make(map[int64]chan response), events: make(chan Event, 32), done: make(chan struct{})}
 	go a.readLoop()
 	var initialized json.RawMessage
-	initializeParams := map[string]any{
-		"clientInfo":   map[string]string{"name": "donext", "version": "0.1.0"},
-		"capabilities": map[string]bool{"experimentalApi": true},
-	}
+	initializeParams := map[string]any{"clientInfo": map[string]string{"name": "donext", "version": "0.1.0"}}
 	if err := a.call(ctx, "initialize", initializeParams, &initialized); err != nil {
 		_ = a.Close()
 		return nil, fmt.Errorf("initialize app-server: %w", err)
@@ -174,9 +171,6 @@ func newAppServer(ctx context.Context, t transport) (*AppServer, error) {
 
 func (a *AppServer) StartThread(ctx context.Context, o ThreadOptions) (string, error) {
 	params := map[string]any{"cwd": o.CWD, "ephemeral": false}
-	if o.ProjectID != "" {
-		params["projectId"] = o.ProjectID
-	}
 	if o.ApprovalPolicy != "" {
 		params["approvalPolicy"] = o.ApprovalPolicy
 	}
@@ -195,41 +189,6 @@ func (a *AppServer) StartThread(ctx context.Context, o ThreadOptions) (string, e
 		return "", errors.New("thread/start returned an empty thread ID")
 	}
 	return out.Thread.ID, nil
-}
-
-func (a *AppServer) ListProjects(ctx context.Context) ([]Project, error) {
-	var projects []Project
-	var cursor string
-	for {
-		params := map[string]any{"limit": 100}
-		if cursor != "" {
-			params["cursor"] = cursor
-		}
-		var out struct {
-			Data []struct {
-				ID    string `json:"id"`
-				Name  string `json:"name"`
-				Roots []struct {
-					Path string `json:"path"`
-				} `json:"roots"`
-			} `json:"data"`
-			NextCursor *string `json:"nextCursor"`
-		}
-		if err := a.call(ctx, "project/list", params, &out); err != nil {
-			return nil, err
-		}
-		for _, item := range out.Data {
-			project := Project{ID: item.ID, Name: item.Name}
-			for _, root := range item.Roots {
-				project.Roots = append(project.Roots, root.Path)
-			}
-			projects = append(projects, project)
-		}
-		if out.NextCursor == nil || *out.NextCursor == "" {
-			return projects, nil
-		}
-		cursor = *out.NextCursor
-	}
 }
 
 func (a *AppServer) NameThread(ctx context.Context, threadID, name string) error {

@@ -76,9 +76,8 @@ func connect(t *testing.T, f *fakeServer, tr transport) *AppServer {
 	if params["clientInfo"].(map[string]any)["name"] != "donext" {
 		t.Fatal("missing client info")
 	}
-	capabilities, ok := params["capabilities"].(map[string]any)
-	if !ok || capabilities["experimentalApi"] != true {
-		t.Fatalf("capabilities=%v want experimentalApi=true", params["capabilities"])
+	if _, ok := params["capabilities"]; ok {
+		t.Fatalf("unexpected experimental capabilities: %v", params["capabilities"])
 	}
 	f.respond(m, map[string]any{"userAgent": "fake"})
 	f.request("initialized")
@@ -94,7 +93,7 @@ func TestFullLifecycleAndRouting(t *testing.T) {
 	c := connect(t, f, tr)
 	done := make(chan error, 1)
 	go func() {
-		thread, err := c.StartThread(context.Background(), ThreadOptions{CWD: "/repo", ProjectID: "project-1", ApprovalPolicy: "never", Sandbox: "read-only"})
+		thread, err := c.StartThread(context.Background(), ThreadOptions{CWD: "/repo", ApprovalPolicy: "never", Sandbox: "read-only"})
 		if err != nil {
 			done <- err
 			return
@@ -116,8 +115,11 @@ func TestFullLifecycleAndRouting(t *testing.T) {
 	}()
 	m := f.request("thread/start")
 	p := m["params"].(map[string]any)
-	if p["cwd"] != "/repo" || p["projectId"] != "project-1" || p["ephemeral"] != false || p["approvalPolicy"] != "never" {
+	if p["cwd"] != "/repo" || p["ephemeral"] != false || p["approvalPolicy"] != "never" {
 		t.Fatalf("params=%v", p)
+	}
+	if _, ok := p["projectId"]; ok {
+		t.Fatalf("unexpected projectId: %v", p)
 	}
 	f.respond(m, map[string]any{"thread": map[string]any{"id": "th-1"}})
 	m = f.request("thread/name/set")
@@ -153,29 +155,6 @@ func TestFullLifecycleAndRouting(t *testing.T) {
 	if err := c.Close(); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func TestListProjectsPaginates(t *testing.T) {
-	f, tr := newFake(t)
-	c := connect(t, f, tr)
-	done := make(chan []Project, 1)
-	go func() { projects, _ := c.ListProjects(context.Background()); done <- projects }()
-	m := f.request("project/list")
-	if m["params"].(map[string]any)["limit"] != float64(100) {
-		t.Fatalf("params=%v", m["params"])
-	}
-	f.respond(m, map[string]any{"data": []any{map[string]any{"id": "p1", "name": "One", "roots": []any{map[string]any{"path": "/one"}}}}, "nextCursor": "next"})
-	m = f.request("project/list")
-	if m["params"].(map[string]any)["cursor"] != "next" {
-		t.Fatalf("params=%v", m["params"])
-	}
-	f.respond(m, map[string]any{"data": []any{map[string]any{"id": "p2", "name": "Two", "roots": []any{map[string]any{"path": "/two"}}}}})
-	projects := <-done
-	if len(projects) != 2 || projects[0].ID != "p1" || projects[0].Roots[0] != "/one" || projects[1].ID != "p2" {
-		t.Fatalf("projects=%+v", projects)
-	}
-	_ = f.conn.Close()
-	_ = c.Close()
 }
 
 func TestReadRateLimits(t *testing.T) {

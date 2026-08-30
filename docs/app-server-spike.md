@@ -5,7 +5,7 @@ Verified on 2026-08-30.
 ## Environment
 
 - Codex CLI: initially verified with `codex-cli 0.149.0-alpha.4.3` bundled with
-  Codex Desktop; capability negotiation reverified with `codex-cli 0.151.0`.
+  Codex Desktop; Desktop integration reverified with `codex-cli 0.151.0`.
 - App Server command: `codex app-server --stdio`.
 - Experimental schemas were generated with
   `codex app-server generate-json-schema --experimental --out <temporary-directory>`.
@@ -22,10 +22,7 @@ Observed messages did not contain a `jsonrpc` field.
 
 Minimal handshake:
 
-1. Send `initialize` with required `clientInfo.name`, `clientInfo.version`, and
-   `capabilities.experimentalApi: true`. Current App Server versions reject
-   experimental requests such as `project/list` unless the client opts in
-   during initialization.
+1. Send `initialize` with required `clientInfo.name` and `clientInfo.version`.
 2. Receive `userAgent`, `codexHome`, `platformFamily`, and `platformOs`.
 3. Send an `initialized` notification with empty `params`.
 4. Send normal requests after initialization completes.
@@ -94,13 +91,22 @@ did not prove automatic sidebar or project placement because `thread/start` did
 not include `projectId`, and `thread/list` reported the source as `vscode`.
 Direct navigation by stored thread ID therefore remains a reliable fallback.
 
-Additional schema verification for ORCH-016 confirmed the project API:
-`project/list` returns persisted projects with `id`, `name`, and absolute
-`roots`; optional `thread/start.projectId` assigns project identity, and durable
-threads persist that assignment. Explicit canonical-root matching is therefore
-the protocol mechanism for Desktop grouping; `cwd` alone is insufficient.
-The project API is experimental and requires the client to negotiate
-`capabilities.experimentalApi: true` in the initial handshake.
+That ORCH-016 conclusion no longer applies to Codex 0.151.0. A real
+`project/list` request returned an empty list while Desktop still grouped the
+same persisted chats correctly from their `cwd`. The current official App
+Server documentation includes `cwd` in `thread/start` and does not document
+`projectId`, so `donext` no longer negotiates the experimental project API or
+prevalidates Desktop grouping.
+
+Codex Desktop 26.818.61809 launches its bundled App Server as a private stdio
+child process. It does not expose the default managed control socket at
+`~/.codex/app-server-control/app-server-control.sock`; `codex app-server proxy`
+therefore cannot attach to the GUI-owned process. The separately supported
+daemon/socket transport is a different App Server instance. On macOS, the
+installed app registers the `codex://threads/<id>` deep link, so `donext` uses
+that best-effort navigation path after naming a new thread and before starting
+its turn. This makes the GUI load the persisted thread while work is active
+without coupling orchestration success to Desktop availability.
 
 ## Implementation conclusion
 

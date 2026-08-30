@@ -43,13 +43,25 @@ custom task database, and forced Git commit management.
 These are outside the MVP until explicitly moved into "Current steps":
 
 - interactive project selector;
-- connecting to an already running App Server daemon/socket;
 - automatic thread renaming after goal discovery;
 - defensive `--max-goals`;
 - additional transport implementations;
 - packaging and release automation.
 
 ## Step history
+
+### ORCH-026 — Reveal managed threads live in Codex Desktop
+
+- Completed: 2026-08-30.
+- Result: removed the obsolete empty `project/list`/`projectId` path and now
+  relies on canonical `cwd`, which current Desktop uses for project grouping.
+  On macOS each named thread is revealed through `codex://threads/<id>` before
+  its turn starts; Desktop failures remain non-blocking. Verified that the GUI's
+  private stdio App Server has no attachable control socket and documented the
+  supported deep-link integration. Checks: focused Codex/CLI race tests; full
+  race tests; full tests; vet; build; diff check; installed-schema and live
+  protocol probes; real no-work smoke; and Desktop list confirmation while the
+  smoke turn was active.
 
 ### ORCH-025 — Require repair after failed verification
 

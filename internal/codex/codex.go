@@ -10,7 +10,6 @@ import (
 // may use App Server or a fake without exposing protocol messages to callers.
 type Client interface {
 	ReadRateLimits(context.Context) (RateLimits, error)
-	ListProjects(context.Context) ([]Project, error)
 	StartThread(context.Context, ThreadOptions) (string, error)
 	NameThread(context.Context, string, string) error
 	StartTurn(context.Context, string, string) (string, error)
@@ -34,15 +33,8 @@ type RateLimitWindow struct {
 
 type ThreadOptions struct {
 	CWD            string
-	ProjectID      string
 	ApprovalPolicy string
 	Sandbox        string
-}
-
-type Project struct {
-	ID    string
-	Name  string
-	Roots []string
 }
 
 type EventKind string

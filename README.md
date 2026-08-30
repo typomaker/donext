@@ -104,6 +104,10 @@ donext status
 Without `--once`, a new persisted thread is created after each successful goal.
 Each thread is named with its project and local launch timestamp, for example
 `donext my-project 2026-08-30 12:33:36 +03:00 next roadmap step`.
+On macOS, `donext` then sends the thread's `codex://threads/<id>` deep link to
+Codex Desktop in the background. This lets the running thread appear in the GUI
+before its turn completes. A missing Desktop URL handler produces a warning but
+does not stop the roadmap run.
 The loop stops on a standalone `ORCHESTRATOR_NO_WORK` final response, failure,
 interruption, an interactive request, a standalone `ORCHESTRATOR_BLOCKED` final
 response, or the weekly usage budget. A failed linter, test, coverage check,
@@ -148,14 +152,16 @@ orchestration exits with an error rather than answering on the user's behalf.
 
 ### Codex Desktop projects
 
-After App Server starts, `donext` calls `project/list` and finds the single
-Desktop project whose root matches the current canonical project root, including
-symlink resolution. Its `projectId` is passed to each `thread/start`, so persisted
-threads appear under the corresponding Codex Desktop project.
+Every `thread/start` receives the canonical repository path as `cwd`. Current
+Codex Desktop uses that persisted working directory to group the chat with its
+project; `donext` does not query or modify Desktop's separate project list and
+does not send the obsolete experimental `projectId` field.
 
-`donext` never creates or modifies Desktop projects. If no project matches, it
-continues with a warning and leaves the thread unassigned. A `project/list` error
-or multiple projects with the same root stops the run before creating a thread.
+Codex Desktop owns a private stdio App Server process rather than publishing its
+transport socket. Consequently, `donext` cannot attach to that exact process.
+It runs its own documented App Server client and uses the Desktop deep link to
+make each new thread visible immediately. The separately managed `codex
+app-server daemon` control socket is not the App Server process owned by the GUI.
 
 ### Weekly usage budget
 

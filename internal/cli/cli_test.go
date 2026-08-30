@@ -35,14 +35,6 @@ type fakeCodex struct {
 	rateLimits       []codex.RateLimits
 	rateLimitErr     error
 	rateLimitReads   int
-	projects         []codex.Project
-	projectsErr      error
-	projectListReads int
-}
-
-func (f *fakeCodex) ListProjects(context.Context) ([]codex.Project, error) {
-	f.projectListReads++
-	return f.projects, f.projectsErr
 }
 
 func (f *fakeCodex) ReadRateLimits(context.Context) (codex.RateLimits, error) {
@@ -119,7 +111,12 @@ func withFakeCodex(t *testing.T, fake *fakeCodex) {
 	t.Helper()
 	old := startCodex
 	startCodex = func(context.Context, string, io.Writer) (codex.Client, error) { return fake, nil }
-	t.Cleanup(func() { startCodex = old })
+	oldReveal := revealDesktopThread
+	revealDesktopThread = func(string) error { return nil }
+	t.Cleanup(func() {
+		startCodex = old
+		revealDesktopThread = oldReveal
+	})
 }
 
 func withCurrentTime(t *testing.T, value time.Time) {
@@ -477,7 +474,7 @@ func TestRunOnceCompleted(t *testing.T) {
 	repository := fixtureProject(t)
 	identity := fixtureIdentity(t, repository)
 	withCurrentTime(t, time.Date(2026, time.August, 30, 12, 33, 36, 0, time.FixedZone("MSK", 3*60*60)))
-	fake := &fakeCodex{events: make(chan codex.Event, 1), projects: []codex.Project{{ID: "desktop-alpha", Name: "Alpha", Roots: []string{identity.Repository}}}}
+	fake := &fakeCodex{events: make(chan codex.Event, 1)}
 	fake.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: "thread-123", TurnID: "turn-456", Status: "completed"}
 	close(fake.events)
 	withFakeCodex(t, fake)
@@ -493,49 +490,44 @@ func TestRunOnceCompleted(t *testing.T) {
 	if !strings.Contains(fake.prompt, "ORCHESTRATOR_BLOCKED") {
 		t.Fatalf("default prompt lacks blocked contract: %q", fake.prompt)
 	}
-	if fake.threadOpts.CWD == "" || fake.threadOpts.ProjectID != "desktop-alpha" || fake.projectListReads != 1 || fake.name != "donext alpha 2026-08-30 12:33:36 +03:00 next roadmap step" {
+	if fake.threadOpts.CWD != identity.Repository || fake.name != "donext alpha 2026-08-30 12:33:36 +03:00 next roadmap step" {
 		t.Fatalf("opts=%+v name=%q", fake.threadOpts, fake.name)
 	}
 }
 
-func TestRunWithoutDesktopProjectWarnsAndStartsUnassigned(t *testing.T) {
+func TestRunRevealsNamedThreadBeforeStartingTurn(t *testing.T) {
 	fake := &fakeCodex{events: make(chan codex.Event, 1)}
 	fake.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: "thread-123", TurnID: "turn-456", Status: "completed"}
 	close(fake.events)
 	withFakeCodex(t, fake)
+	var revealed string
+	revealDesktopThread = func(threadID string) error {
+		revealed = threadID
+		if fake.name == "" || fake.turnStarts != 0 {
+			t.Fatalf("reveal order: name=%q turnStarts=%d", fake.name, fake.turnStarts)
+		}
+		return nil
+	}
 
 	var stdout, stderr bytes.Buffer
 	if code := Run(runArgs(t, "--once"), &stdout, &stderr); code != 0 {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	if fake.threadOpts.ProjectID != "" || !strings.Contains(stderr.String(), "thread will remain unassigned") {
-		t.Fatalf("opts=%+v stderr=%q", fake.threadOpts, stderr.String())
+	if revealed != "thread-123" {
+		t.Fatalf("revealed=%q stderr=%q", revealed, stderr.String())
 	}
 }
 
-func TestRunRejectsAmbiguousDesktopProjectBeforeThread(t *testing.T) {
-	repository := fixtureProject(t)
-	identity := fixtureIdentity(t, repository)
-	fake := &fakeCodex{events: make(chan codex.Event), projects: []codex.Project{
-		{ID: "p1", Name: "One", Roots: []string{identity.Repository}},
-		{ID: "p2", Name: "Two", Roots: []string{identity.Repository}},
-	}}
+func TestRunContinuesWhenDesktopRevealFails(t *testing.T) {
+	fake := &fakeCodex{events: make(chan codex.Event, 1)}
+	fake.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: "thread-123", TurnID: "turn-456", Status: "completed"}
+	close(fake.events)
 	withFakeCodex(t, fake)
-
-	var stdout, stderr bytes.Buffer
-	code := Run(append(runArgsFor(t, repository), "--once"), &stdout, &stderr)
-	if code != 1 || fake.threadStarts != 0 || !strings.Contains(stderr.String(), "belongs to multiple projects") {
-		t.Fatalf("code=%d starts=%d stdout=%q stderr=%q", code, fake.threadStarts, stdout.String(), stderr.String())
-	}
-}
-
-func TestRunStopsWhenDesktopProjectsCannotBeRead(t *testing.T) {
-	fake := &fakeCodex{events: make(chan codex.Event), projectsErr: errors.New("project API unavailable")}
-	withFakeCodex(t, fake)
+	revealDesktopThread = func(string) error { return errors.New("no URL handler") }
 
 	var stdout, stderr bytes.Buffer
 	code := Run(runArgs(t, "--once"), &stdout, &stderr)
-	if code != 1 || fake.threadStarts != 0 || !strings.Contains(stderr.String(), "project API unavailable") {
+	if code != 0 || fake.threadStarts != 1 || fake.turnStarts != 1 || !strings.Contains(stderr.String(), "warning: reveal thread thread-123") {
 		t.Fatalf("code=%d starts=%d stdout=%q stderr=%q", code, fake.threadStarts, stdout.String(), stderr.String())
 	}
 }

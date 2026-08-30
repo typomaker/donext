@@ -9,7 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -30,6 +30,7 @@ var stateDirectory = func(repository string) (string, error) {
 }
 var shutdownGracePeriod = 3 * time.Second
 var currentTime = time.Now
+var revealDesktopThread = revealThreadInDesktop
 var promptStdin io.Reader = os.Stdin
 var stdinIsTerminal = func() bool {
 	info, err := os.Stdin.Stat()
@@ -198,7 +199,7 @@ type runOptions struct {
 }
 
 type projectSpec struct {
-	ID, Name, Repository, Prompt, ApprovalPolicy, Sandbox, DesktopProjectID string
+	ID, Name, Repository, Prompt, ApprovalPolicy, Sandbox string
 }
 
 const defaultTaskPrompt = "Выполни первый незавершённый шаг из ROADMAP.md полностью. За этот запуск выполни ровно один шаг."
@@ -267,17 +268,6 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 		}
 		logLifecycle(store, stderr, projectID, "app-server", "stopped", nil)
 	}()
-	desktopProjectID, err := matchDesktopProject(ctx, client, project.Repository)
-	if err != nil {
-		_ = store.Write(state.State{Project: projectID, Status: "failed"})
-		fmt.Fprintf(stderr, "resolve Codex Desktop project: %v\n", err)
-		return 1
-	}
-	project.DesktopProjectID = desktopProjectID
-	if desktopProjectID == "" {
-		fmt.Fprintf(stderr, "warning: no Codex Desktop project has root %s; thread will remain unassigned\n", project.Repository)
-	}
-
 	var baseline *codex.RateLimitWindow
 	for {
 		if weeklyUsageBudget > 0 {
@@ -319,46 +309,6 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 	}
 }
 
-func matchDesktopProject(ctx context.Context, client codex.Client, repository string) (string, error) {
-	projects, err := client.ListProjects(ctx)
-	if err != nil {
-		return "", err
-	}
-	var matches []codex.Project
-	for _, project := range projects {
-		for _, root := range project.Roots {
-			canonical, err := canonicalExistingPath(root)
-			if err == nil && canonical == repository {
-				matches = append(matches, project)
-				break
-			}
-		}
-	}
-	if len(matches) > 1 {
-		names := make([]string, 0, len(matches))
-		for _, project := range matches {
-			names = append(names, fmt.Sprintf("%s (%s)", project.Name, project.ID))
-		}
-		return "", fmt.Errorf("root %s belongs to multiple projects: %s", repository, strings.Join(names, ", "))
-	}
-	if len(matches) == 0 {
-		return "", nil
-	}
-	return matches[0].ID, nil
-}
-
-func canonicalExistingPath(path string) (string, error) {
-	absolute, err := filepath.Abs(path)
-	if err != nil {
-		return "", err
-	}
-	resolved, err := filepath.EvalSymlinks(absolute)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Clean(resolved), nil
-}
-
 const weeklyWindowMinutes int64 = 7 * 24 * 60
 
 func weeklyWindow(limits codex.RateLimits) (*codex.RateLimitWindow, error) {
@@ -390,7 +340,7 @@ func validateSameWeeklyWindow(baseline, current codex.RateLimitWindow) error {
 func runGoal(ctx context.Context, client codex.Client, project projectSpec, store *state.Store, weeklyBaseline *codex.RateLimitWindow, weeklyBudget int, signals <-chan os.Signal, stdout, stderr io.Writer) (string, bool) {
 	projectID, projectName := project.ID, project.Name
 	fmt.Fprintln(stderr, "starting new Codex session")
-	threadID, err := client.StartThread(ctx, codex.ThreadOptions{CWD: project.Repository, ProjectID: project.DesktopProjectID, ApprovalPolicy: project.ApprovalPolicy, Sandbox: project.Sandbox})
+	threadID, err := client.StartThread(ctx, codex.ThreadOptions{CWD: project.Repository, ApprovalPolicy: project.ApprovalPolicy, Sandbox: project.Sandbox})
 	if err != nil {
 		_ = store.Write(state.State{Project: projectID, Status: "failed"})
 		logLifecycle(store, stderr, projectID, "thread", "start_failed", nil)
@@ -413,6 +363,9 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 		printTerminal(stdout, projectName, threadID, "failed")
 		fmt.Fprintf(stderr, "name thread: %v\n", err)
 		return "failed", false
+	}
+	if err := revealDesktopThread(threadID); err != nil {
+		fmt.Fprintf(stderr, "warning: reveal thread %s in Codex Desktop: %v\n", threadID, err)
 	}
 	turnID, err := client.StartTurn(ctx, threadID, project.Prompt)
 	if err != nil {
@@ -532,6 +485,13 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 			return status, false
 		}
 	}
+}
+
+func revealThreadInDesktop(threadID string) error {
+	if runtime.GOOS != "darwin" {
+		return nil
+	}
+	return exec.Command("open", "-g", "codex://threads/"+threadID).Run()
 }
 
 func printUsageSummary(ctx context.Context, client codex.Client, usage *codex.Event, weeklyBaseline *codex.RateLimitWindow, weeklyBudget int, stdout, stderr io.Writer) {

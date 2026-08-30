@@ -9,10 +9,11 @@ after its first release.
 
 ### Fixed
 
+- Reveal each newly created thread in Codex Desktop on macOS before its turn
+  starts, and rely on canonical `cwd` grouping instead of the now-empty
+  experimental `project/list`/`projectId` path.
 - Append a repair-and-retry completion contract to every prompt so fixable
   linter, test, coverage, profiler, and log failures do not stop as blocked.
-- Negotiate the App Server `experimentalApi` capability required by
-  `project/list` on current Codex Desktop versions.
 
 ### Added
 
@@ -32,8 +33,6 @@ after its first release.
   weekly usage budget.
 - Persisted thread lifecycle handling, project-local state, independent locking,
   interruption, recovery, metadata-only logs, and `donext status`.
-- Codex Desktop project association through `project/list` and
-  `thread/start.projectId`.
 - Automated tests using fake and in-memory App Server implementations.
 - GitHub Actions CI, MIT License, contribution guidelines, and security policy.
 
