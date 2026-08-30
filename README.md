@@ -174,6 +174,9 @@ a model context window, it also prints the latest request's context tokens and
 percentage used. Model messages are terminal-only and are never copied into
 state or lifecycle logs. Standalone orchestrator control markers are hidden from
 the terminal model output and are consumed only by the final-response handler.
+If removing those markers leaves no visible response, the CLI prints
+`model response completed (no visible output)` to confirm that the model turn
+did finish.
 
 ## Project state, locking, and recovery
 

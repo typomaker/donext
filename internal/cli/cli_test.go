@@ -751,7 +751,7 @@ func TestRunOnceRecognizesNoWorkOnlyInFinalAgentOutput(t *testing.T) {
 	if code != 0 || !strings.Contains(stdout.String(), "status: no_work\n") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	if strings.Contains(stderr.String(), "ORCHESTRATOR_NO_WORK") || strings.Contains(stderr.String(), "model response:") {
+	if strings.Contains(stderr.String(), "ORCHESTRATOR_NO_WORK") || !strings.Contains(stderr.String(), "model response completed (no visible output)") {
 		t.Fatalf("control-only response leaked to terminal: %q", stderr.String())
 	}
 }

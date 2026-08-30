@@ -482,6 +482,8 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 				finalOutput = event.Text
 				if visible := visibleModelOutput(event.Text); visible != "" {
 					fmt.Fprintf(stderr, "model response:\n%s\n", visible)
+				} else {
+					fmt.Fprintln(stderr, "model response completed (no visible output)")
 				}
 				continue
 			}

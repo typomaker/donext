@@ -22,6 +22,8 @@ after its first release.
   continuous execution after an incomplete goal.
 - Control markers are consumed internally instead of appearing in live model
   output.
+- Explicit terminal confirmation when a completed model response contains only
+  hidden control markers.
 - Stateless `donext` CLI that runs the current project's roadmap through Codex
   App Server.
 - Continuous and single-step execution, dry-run mode, custom prompts, and a

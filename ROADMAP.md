@@ -51,6 +51,14 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-024 — Confirm marker-only model completion in live output
+
+- Completed: 2026-08-30.
+- Result: marker-only final responses now print an explicit no-visible-output
+  completion line while control markers stay hidden and normal model responses
+  remain unchanged. Updated README and changelog. Checks: focused CLI race tests;
+  full race tests; full tests; vet; build; and diff check.
+
 ### ORCH-023 — List permission values in CLI help
 
 - Completed: 2026-08-30.
