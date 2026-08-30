@@ -24,8 +24,6 @@ one succeeds.
 9. Step IDs remain stable after implementation begins.
 10. Never move a step to history while relevant checks fail or remain unknown.
 11. Read `AGENTS.md` and this entire file before starting a step.
-12. If no current steps remain, do not modify the repository and finish with
-    the marker `ORCHESTRATOR_NO_WORK`.
 
 ## MVP scope
 
