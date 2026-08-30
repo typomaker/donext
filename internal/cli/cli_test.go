@@ -633,8 +633,8 @@ func TestRunRecoversStaleStateWithNewThread(t *testing.T) {
 
 func TestRunContinuousCompletedCompletedNoWork(t *testing.T) {
 	fake := &fakeCodex{
-		events:   make(chan codex.Event, 5),
-		outcomes: []string{"completed", "completed", "no_work"},
+		events:   make(chan codex.Event, 7),
+		outcomes: []string{"completed", "completed", "no_work", "no_work"},
 	}
 	starts := 0
 	old := startCodex
@@ -649,12 +649,26 @@ func TestRunContinuousCompletedCompletedNoWork(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	if starts != 3 || fake.threadStarts != 3 || fake.turnStarts != 3 || fake.closed != 3 {
+	if starts != 4 || fake.threadStarts != 4 || fake.turnStarts != 4 || fake.closed != 4 {
 		t.Fatalf("starts=%d fake=%+v", starts, fake)
 	}
 	want := ""
 	if stdout.String() != want {
 		t.Fatalf("stdout=%q want=%q", stdout.String(), want)
+	}
+}
+
+func TestRunContinuousResetsNoWorkConfirmationAfterCompletedGoal(t *testing.T) {
+	fake := &fakeCodex{
+		events:   make(chan codex.Event, 8),
+		outcomes: []string{"no_work", "completed", "no_work", "no_work"},
+	}
+	withFakeCodex(t, fake)
+
+	var stdout, stderr bytes.Buffer
+	code := Run(runArgs(t), &stdout, &stderr)
+	if code != 0 || fake.threadStarts != 4 || fake.turnStarts != 4 || fake.closed != 4 {
+		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
 	}
 }
 

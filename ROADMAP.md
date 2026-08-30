@@ -50,6 +50,16 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-043 — Confirm no-work results in a fresh session
+
+- Completed: 2026-08-30.
+- Result: continuous runs now require two consecutive `DONEXT_NO_WORK` results
+  from independent threads before stopping; completed work resets confirmation,
+  while `--once` and other terminal semantics remain unchanged. Updated the
+  README, changelog, deterministic CLI regressions, and installed binary.
+  Checks: focused CLI race tests; full tests; full race tests; vet; build; binary
+  help smoke; and diff check.
+
 ### ORCH-042 — State the configured weekly quota in budget updates
 
 - Completed: 2026-08-30.

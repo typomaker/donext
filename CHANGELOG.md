@@ -43,6 +43,9 @@ after its first release.
 
 ### Fixed
 
+- Require two consecutive `DONEXT_NO_WORK` results from independent sessions
+  before a continuous run stops, and reset the confirmation after completed
+  work. This prevents one contradictory no-work marker from ending a roadmap.
 - Restart App Server between continuous-run goals so completed persisted
   sessions are released to Codex Desktop before the entire `donext` run exits.
 - Shorten managed Desktop thread titles to the readable local format

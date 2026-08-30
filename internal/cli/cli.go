@@ -280,6 +280,7 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 		appServerStderr = stderr
 	}
 	var baseline *codex.RateLimitWindow
+	consecutiveNoWork := 0
 	for {
 		client, err := startCodex(ctx, command, appServerStderr)
 		if err != nil {
@@ -337,9 +338,17 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 		if !ok {
 			return 1
 		}
-		if once || status == "no_work" {
+		if once {
 			return 0
 		}
+		if status == "no_work" {
+			consecutiveNoWork++
+			if consecutiveNoWork == 2 {
+				return 0
+			}
+			continue
+		}
+		consecutiveNoWork = 0
 	}
 }
 

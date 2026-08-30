@@ -118,9 +118,12 @@ has it loaded. `donext` therefore closes that server after every goal and starts
 a fresh one for the next goal, releasing completed sessions to Desktop during a
 continuous run. The currently active session can still remain absent until its
 turn finishes and that goal's server closes.
-The loop stops on a standalone `DONEXT_NO_WORK` final response, failure,
-interruption, an interactive request, a standalone `DONEXT_BLOCKED` final
-response, or the weekly usage budget. Task selection, scope, verification,
+In continuous mode, a standalone `DONEXT_NO_WORK` final response starts one
+fresh independent session with the normal prompt. The loop stops only after two
+consecutive sessions report `DONEXT_NO_WORK`; any completed goal resets that
+confirmation. `--once` still stops after its single session. The loop also stops
+on failure, interruption, an interactive request, a standalone `DONEXT_BLOCKED`
+final response, or the weekly usage budget. Task selection, scope, verification,
 recovery, Git, commit, and working-directory policies belong to each project's
 own instructions; donext does not inject them. A blocked response is reserved
 for work that needs external intervention after local options are exhausted.
@@ -151,7 +154,9 @@ after the current task is complete and the available project plan has no actiona
 `DONEXT_BLOCKED` is a blocked session exit only when progress is impossible
 without external intervention. The marker must be the final line of the final
 response; ordinary failures must be investigated while reasonable local action
-remains. Prompts are never stored in `.donext` or lifecycle logs.
+remains. In continuous mode, `DONEXT_NO_WORK` is independently confirmed in a
+fresh thread before termination. Prompts are never stored in `.donext` or
+lifecycle logs.
 
 ### Permissions and interactive requests
 
