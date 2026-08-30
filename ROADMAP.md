@@ -53,6 +53,14 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-018 — Negotiate the experimental project API capability
+
+- Completed: 2026-08-30.
+- Result: added `capabilities.experimentalApi: true` to the App Server
+  initialization handshake so current Codex versions accept `project/list`.
+  Updated the protocol documentation and changelog. Checks: focused adapter
+  race test; full race tests; full tests; vet; build; and diff check.
+
 ### ORCH-014 — Replace an absolute threshold with a per-run weekly budget
 
 - Completed: 2026-08-30.

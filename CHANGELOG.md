@@ -7,6 +7,11 @@ after its first release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Negotiate the App Server `experimentalApi` capability required by
+  `project/list` on current Codex Desktop versions.
+
 ### Added
 
 - Stateless `donext` CLI that runs the current project's roadmap through Codex

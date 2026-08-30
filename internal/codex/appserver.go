@@ -157,7 +157,11 @@ func newAppServer(ctx context.Context, t transport) (*AppServer, error) {
 	a := &AppServer{t: t, pending: make(map[int64]chan response), events: make(chan Event, 32), done: make(chan struct{})}
 	go a.readLoop()
 	var initialized json.RawMessage
-	if err := a.call(ctx, "initialize", map[string]any{"clientInfo": map[string]string{"name": "donext", "version": "0.1.0"}}, &initialized); err != nil {
+	initializeParams := map[string]any{
+		"clientInfo":   map[string]string{"name": "donext", "version": "0.1.0"},
+		"capabilities": map[string]bool{"experimentalApi": true},
+	}
+	if err := a.call(ctx, "initialize", initializeParams, &initialized); err != nil {
 		_ = a.Close()
 		return nil, fmt.Errorf("initialize app-server: %w", err)
 	}

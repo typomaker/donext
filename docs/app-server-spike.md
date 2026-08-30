@@ -4,7 +4,8 @@ Verified on 2026-08-30.
 
 ## Environment
 
-- Codex CLI: `codex-cli 0.149.0-alpha.4.3` bundled with Codex Desktop.
+- Codex CLI: initially verified with `codex-cli 0.149.0-alpha.4.3` bundled with
+  Codex Desktop; capability negotiation reverified with `codex-cli 0.151.0`.
 - App Server command: `codex app-server --stdio`.
 - Experimental schemas were generated with
   `codex app-server generate-json-schema --experimental --out <temporary-directory>`.
@@ -21,8 +22,10 @@ Observed messages did not contain a `jsonrpc` field.
 
 Minimal handshake:
 
-1. Send `initialize` with required `clientInfo.name` and `clientInfo.version`.
-   `capabilities` may be omitted or set to `null`.
+1. Send `initialize` with required `clientInfo.name`, `clientInfo.version`, and
+   `capabilities.experimentalApi: true`. Current App Server versions reject
+   experimental requests such as `project/list` unless the client opts in
+   during initialization.
 2. Receive `userAgent`, `codexHome`, `platformFamily`, and `platformOs`.
 3. Send an `initialized` notification with empty `params`.
 4. Send normal requests after initialization completes.
@@ -91,6 +94,8 @@ Additional schema verification for ORCH-016 confirmed the project API:
 `roots`; optional `thread/start.projectId` assigns project identity, and durable
 threads persist that assignment. Explicit canonical-root matching is therefore
 the protocol mechanism for Desktop grouping; `cwd` alone is insufficient.
+The project API is experimental and requires the client to negotiate
+`capabilities.experimentalApi: true` in the initial handshake.
 
 ## Implementation conclusion
 

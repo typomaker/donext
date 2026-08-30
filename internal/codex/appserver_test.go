@@ -76,6 +76,10 @@ func connect(t *testing.T, f *fakeServer, tr transport) *AppServer {
 	if params["clientInfo"].(map[string]any)["name"] != "donext" {
 		t.Fatal("missing client info")
 	}
+	capabilities, ok := params["capabilities"].(map[string]any)
+	if !ok || capabilities["experimentalApi"] != true {
+		t.Fatalf("capabilities=%v want experimentalApi=true", params["capabilities"])
+	}
 	f.respond(m, map[string]any{"userAgent": "fake"})
 	f.request("initialized")
 	r := <-result
