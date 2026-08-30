@@ -51,6 +51,15 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-022 — Hide control markers from live model output
+
+- Completed: 2026-08-30.
+- Result: standalone no-work and blocked markers remain available to the final
+  response handler but are removed from terminal model output. Marker-only
+  responses no longer produce empty response blocks; prose containing marker
+  text remains unchanged. Updated README and changelog. Checks: focused CLI race
+  tests; full race tests; full tests; vet; build; and diff check.
+
 ### ORCH-021 — Stop cleanly when a managed goal is blocked
 
 - Completed: 2026-08-30.

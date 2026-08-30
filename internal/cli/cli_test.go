@@ -741,6 +741,9 @@ func TestRunOnceRecognizesNoWorkOnlyInFinalAgentOutput(t *testing.T) {
 	if code != 0 || !strings.Contains(stdout.String(), "status: no_work\n") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
+	if strings.Contains(stderr.String(), "ORCHESTRATOR_NO_WORK") || strings.Contains(stderr.String(), "model response:") {
+		t.Fatalf("control-only response leaked to terminal: %q", stderr.String())
+	}
 }
 
 func TestRunBlockedStopsContinuousExecutionAndLogsMetadata(t *testing.T) {
@@ -758,6 +761,9 @@ func TestRunBlockedStopsContinuousExecutionAndLogsMetadata(t *testing.T) {
 	if code != 1 || fake.threadStarts != 1 || !strings.Contains(stdout.String(), "status: blocked\n") {
 		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
 	}
+	if strings.Contains(stderr.String(), "ORCHESTRATOR_BLOCKED") || !strings.Contains(stderr.String(), "model response:\nloopback is unavailable") {
+		t.Fatalf("blocked response was not filtered: %q", stderr.String())
+	}
 	current, err := state.New(state.ProjectDir(identity.Repository)).Read(identity.ID)
 	if err != nil || current.Status != "blocked" {
 		t.Fatalf("state=%+v err=%v", current, err)
@@ -769,6 +775,14 @@ func TestRunBlockedStopsContinuousExecutionAndLogsMetadata(t *testing.T) {
 	logText := string(logData)
 	if !strings.Contains(logText, "component=turn event=blocked") || strings.Contains(logText, "loopback") {
 		t.Fatalf("lifecycle log=%q", logText)
+	}
+}
+
+func TestVisibleModelOutputRemovesOnlyStandaloneControlMarkers(t *testing.T) {
+	input := "work in progress\r\nORCHESTRATOR_BLOCKED\r\nmarker ORCHESTRATOR_NO_WORK in prose\r\n"
+	want := "work in progress\nmarker ORCHESTRATOR_NO_WORK in prose"
+	if got := visibleModelOutput(input); got != want {
+		t.Fatalf("visible output=%q want=%q", got, want)
 	}
 }
 

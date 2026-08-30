@@ -19,6 +19,8 @@ after its first release.
 - Local launch timestamps with UTC offsets in managed Codex thread names.
 - Explicit `ORCHESTRATOR_BLOCKED` handling that records blocked state and stops
   continuous execution after an incomplete goal.
+- Control markers are consumed internally instead of appearing in live model
+  output.
 - Stateless `donext` CLI that runs the current project's roadmap through Codex
   App Server.
 - Continuous and single-step execution, dry-run mode, custom prompts, and a

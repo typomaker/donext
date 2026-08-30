@@ -169,7 +169,8 @@ completed model message to the terminal. When the turn ends, it prints input,
 cached input, output, reasoning, and total token counts. When App Server supplies
 a model context window, it also prints the latest request's context tokens and
 percentage used. Model messages are terminal-only and are never copied into
-state or lifecycle logs.
+state or lifecycle logs. Standalone orchestrator control markers are hidden from
+the terminal model output and are consumed only by the final-response handler.
 
 ## Project state, locking, and recovery
 

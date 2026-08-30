@@ -480,7 +480,9 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 			}
 			if event.Kind == codex.AgentMessageCompleted {
 				finalOutput = event.Text
-				fmt.Fprintf(stderr, "model response:\n%s\n", event.Text)
+				if visible := visibleModelOutput(event.Text); visible != "" {
+					fmt.Fprintf(stderr, "model response:\n%s\n", visible)
+				}
 				continue
 			}
 			if event.Kind == codex.TokenUsageUpdated {
@@ -581,6 +583,21 @@ func containsMarkerLine(output, marker string) bool {
 		}
 	}
 	return false
+}
+
+func visibleModelOutput(output string) string {
+	markers := map[string]bool{
+		"ORCHESTRATOR_NO_WORK": true,
+		"ORCHESTRATOR_BLOCKED": true,
+	}
+	lines := strings.Split(strings.ReplaceAll(output, "\r\n", "\n"), "\n")
+	visible := lines[:0]
+	for _, line := range lines {
+		if !markers[strings.TrimSpace(line)] {
+			visible = append(visible, line)
+		}
+	}
+	return strings.TrimSpace(strings.Join(visible, "\n"))
 }
 
 func printTerminal(w io.Writer, project, threadID, status string) {
