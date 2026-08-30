@@ -441,7 +441,7 @@ func TestCustomPromptReachesTurnButNotLifecycleLog(t *testing.T) {
 	if strings.Contains(stderr.String(), secretPrompt) {
 		t.Fatalf("prompt leaked into normal terminal output: %q", stderr.String())
 	}
-	for _, want := range []string{"единственной задачей текущего треда", "не начинай следующий roadmap-шаг", "канонического корня проекта", "пути относительно этой директории", "диагностируй причину", "повтори релевантную проверку", "внешнего блокера"} {
+	for _, want := range []string{"concrete goal", "primary instruction", "every applicable source of truth", "sole goal of the current thread", "without starting another goal", "canonical project root", "paths relative to that directory", "diagnose the cause", "rerun the relevant check", "only when, after inspecting all available", "exhaust the permitted ways", "Do not use either marker"} {
 		if !strings.Contains(fake.prompt, want) {
 			t.Fatalf("prompt lacks repair contract %q: %q", want, fake.prompt)
 		}
@@ -492,6 +492,11 @@ func TestRunOnceCompleted(t *testing.T) {
 	}
 	if !strings.Contains(fake.prompt, "ORCHESTRATOR_BLOCKED") {
 		t.Fatalf("default prompt lacks blocked contract: %q", fake.prompt)
+	}
+	for _, want := range []string{"Independently determine", "every applicable source of truth", "cannot independently determine any next goal", "a goal has been identified but a specific problem"} {
+		if !strings.Contains(fake.prompt, want) {
+			t.Fatalf("default prompt lacks autonomous stop rule %q: %q", want, fake.prompt)
+		}
 	}
 	if fake.threadOpts.CWD != identity.Repository || fake.name != "30 Aug 12:33 · next roadmap step" {
 		t.Fatalf("opts=%+v name=%q", fake.threadOpts, fake.name)

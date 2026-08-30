@@ -52,6 +52,17 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-030 — Make stop markers a last resort
+
+- Completed: 2026-08-30.
+- Result: rewrote the built-in task and orchestration contract in English. An
+  explicit custom goal remains primary; otherwise Codex must determine one goal
+  from all applicable project instructions and documentation. `NO_WORK` now
+  means no goal can be independently determined after that inspection, while
+  `BLOCKED` requires a known goal and exhausted permitted solutions. Updated
+  README and changelog. Checks: focused CLI race tests; inspected effective
+  dry-run prompt; full race tests; full tests; vet; build; and diff check.
+
 ### ORCH-029 — Clarify terminal request and response output
 
 - Completed: 2026-08-30.

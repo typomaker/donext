@@ -72,8 +72,9 @@ donext
 
 `donext` does not parse the roadmap itself. It starts Codex with the canonical
 Git root, or the canonical current directory for a non-Git project, and asks
-Codex to complete exactly the first unfinished step. Codex discovers applicable
-`AGENTS.md` files through its normal rules.
+Codex to determine and complete exactly one next goal from all applicable
+project instructions and documentation. Codex discovers applicable `AGENTS.md`
+files through its normal rules.
 
 ## Commands and modes
 
@@ -144,10 +145,16 @@ mutually exclusive.
 - `-` reads redirected standard input.
 
 Empty prompts, missing or unreadable files, and terminal stdin are rejected
-before App Server starts. Without the flag, the built-in roadmap task is used.
+before App Server starts. Without the flag, the built-in project-goal prompt is
+used. The built-in prompt and appended orchestration contract are in English.
 The orchestration completion contract is appended to every prompt source,
-including custom prompts, so failed verification is repaired before the turn
-stops. Prompts are never stored in `.donext` or lifecycle logs.
+including custom prompts. It tells Codex to consult all applicable project
+instructions, determine one goal autonomously, and repair failed verification
+before stopping. `ORCHESTRATOR_NO_WORK` is allowed only when those sources do
+not provide enough direction to determine any next goal. `ORCHESTRATOR_BLOCKED`
+is allowed only after a goal is known and permitted ways to solve a concrete
+problem have been exhausted. Prompts are never stored in `.donext` or lifecycle
+logs.
 
 ### Permissions and interactive requests
 

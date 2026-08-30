@@ -9,6 +9,10 @@ after its first release.
 
 ### Changed
 
+- Make stop markers a last resort: Codex now consults all applicable project
+  instructions before using `ORCHESTRATOR_NO_WORK`, and uses
+  `ORCHESTRATOR_BLOCKED` only for a known goal with an unresolvable problem. The
+  built-in task and orchestration contract are now entirely in English.
 - Hide model requests and remove the `model response:` label in normal output;
   prefix response lines with `>` and add `-v`/`--verbose` labeled request and
   response blocks.
