@@ -1,7 +1,7 @@
 # donext
 
-[![CI](https://github.com/albertsultanov/donext/actions/workflows/ci.yml/badge.svg)](https://github.com/albertsultanov/donext/actions/workflows/ci.yml)
-[![Go version](https://img.shields.io/github/go-mod/go-version/albertsultanov/donext)](go.mod)
+[![CI](https://github.com/typomaker/donext/actions/workflows/ci.yml/badge.svg)](https://github.com/typomaker/donext/actions/workflows/ci.yml)
+[![Go version](https://img.shields.io/github/go-mod/go-version/typomaker/donext)](go.mod)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 `donext` is a local, stateless CLI built on the installed Codex App Server. It
@@ -43,7 +43,7 @@ codex --version
 The standard Go installation is sufficient; no separate installer is required:
 
 ```sh
-go install github.com/albertsultanov/donext/cmd/donext@latest
+go install github.com/typomaker/donext/cmd/donext@latest
 donext --help
 ```
 
@@ -56,7 +56,7 @@ export PATH="$(go env GOPATH)/bin:$PATH"
 To install the current checkout instead of the published version:
 
 ```sh
-git clone https://github.com/albertsultanov/donext.git
+git clone https://github.com/typomaker/donext.git
 cd donext
 go install ./cmd/donext
 ```

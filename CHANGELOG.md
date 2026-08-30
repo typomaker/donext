@@ -20,4 +20,4 @@ after its first release.
 - Automated tests using fake and in-memory App Server implementations.
 - GitHub Actions CI, MIT License, contribution guidelines, and security policy.
 
-[Unreleased]: https://github.com/albertsultanov/donext/commits/main
+[Unreleased]: https://github.com/typomaker/donext/commits/main

@@ -12,9 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/albertsultanov/donext/internal/codex"
-	"github.com/albertsultanov/donext/internal/project"
-	"github.com/albertsultanov/donext/internal/state"
+	"github.com/typomaker/donext/internal/codex"
+	"github.com/typomaker/donext/internal/project"
+	"github.com/typomaker/donext/internal/state"
 )
 
 type fakeCodex struct {

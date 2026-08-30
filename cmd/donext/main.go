@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/albertsultanov/donext/internal/cli"
+	"github.com/typomaker/donext/internal/cli"
 )
 
 func main() {

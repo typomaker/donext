@@ -14,9 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/albertsultanov/donext/internal/codex"
-	projectid "github.com/albertsultanov/donext/internal/project"
-	"github.com/albertsultanov/donext/internal/state"
+	"github.com/typomaker/donext/internal/codex"
+	projectid "github.com/typomaker/donext/internal/project"
+	"github.com/typomaker/donext/internal/state"
 )
 
 type codexStarter func(context.Context, string, io.Writer) (codex.Client, error)
