@@ -51,6 +51,13 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-020 — Timestamp managed thread names
+
+- Completed: 2026-08-30.
+- Result: managed Codex thread names now include the local launch date, time,
+  and UTC offset, with deterministic coverage and a documented example. Checks:
+  focused CLI race tests; full race tests; full tests; vet; build; and diff check.
+
 ### ORCH-019 — Show live session progress and usage statistics
 
 - Completed: 2026-08-30.

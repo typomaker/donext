@@ -99,6 +99,8 @@ donext status
 ```
 
 Without `--once`, a new persisted thread is created after each successful goal.
+Each thread is named with its project and local launch timestamp, for example
+`donext my-project 2026-08-30 12:33:36 +03:00 next roadmap step`.
 The loop stops on a standalone `ORCHESTRATOR_NO_WORK` final response, failure,
 interruption, an interactive request, or the weekly usage budget. Failures and
 interruptions return a nonzero exit status; `completed`, `no_work`, and

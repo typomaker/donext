@@ -16,6 +16,7 @@ after its first release.
 
 - Live thread/turn progress, terminal-only model responses, and post-session
   token, context-window, and weekly-budget statistics.
+- Local launch timestamps with UTC offsets in managed Codex thread names.
 - Stateless `donext` CLI that runs the current project's roadmap through Codex
   App Server.
 - Continuous and single-step execution, dry-run mode, custom prompts, and a

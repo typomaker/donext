@@ -29,6 +29,7 @@ var stateDirectory = func(repository string) (string, error) {
 	return state.ProjectDir(repository), nil
 }
 var shutdownGracePeriod = 3 * time.Second
+var currentTime = time.Now
 var promptStdin io.Reader = os.Stdin
 var stdinIsTerminal = func() bool {
 	info, err := os.Stdin.Stat()
@@ -396,7 +397,9 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 		fmt.Fprintf(stderr, "write running state: %v\n", err)
 		return "failed", false
 	}
-	if err := client.NameThread(ctx, threadID, "donext "+projectName+" next roadmap step"); err != nil {
+	startedAt := currentTime()
+	threadName := fmt.Sprintf("donext %s %s next roadmap step", projectName, startedAt.Format("2006-01-02 15:04:05 -07:00"))
+	if err := client.NameThread(ctx, threadID, threadName); err != nil {
 		_ = store.Write(state.State{Project: projectID, Status: "failed", ThreadID: threadID})
 		logLifecycle(store, stderr, projectID, "thread", "name_failed", map[string]string{"thread": threadID})
 		printTerminal(stdout, projectName, threadID, "failed")

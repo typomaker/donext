@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/typomaker/donext/internal/codex"
 	"github.com/typomaker/donext/internal/project"
@@ -119,6 +120,13 @@ func withFakeCodex(t *testing.T, fake *fakeCodex) {
 	old := startCodex
 	startCodex = func(context.Context, string, io.Writer) (codex.Client, error) { return fake, nil }
 	t.Cleanup(func() { startCodex = old })
+}
+
+func withCurrentTime(t *testing.T, value time.Time) {
+	t.Helper()
+	old := currentTime
+	currentTime = func() time.Time { return value }
+	t.Cleanup(func() { currentTime = old })
 }
 
 func withPromptStdin(t *testing.T, input io.Reader, terminal bool) {
@@ -453,6 +461,7 @@ func TestRejectsRemovedRunCommandAndConfig(t *testing.T) {
 func TestRunOnceCompleted(t *testing.T) {
 	repository := fixtureProject(t)
 	identity := fixtureIdentity(t, repository)
+	withCurrentTime(t, time.Date(2026, time.August, 30, 12, 33, 36, 0, time.FixedZone("MSK", 3*60*60)))
 	fake := &fakeCodex{events: make(chan codex.Event, 1), projects: []codex.Project{{ID: "desktop-alpha", Name: "Alpha", Roots: []string{identity.Repository}}}}
 	fake.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: "thread-123", TurnID: "turn-456", Status: "completed"}
 	close(fake.events)
@@ -466,7 +475,7 @@ func TestRunOnceCompleted(t *testing.T) {
 	if fake.threadStarts != 1 || fake.turnStarts != 1 || fake.closed != 1 || fake.prompt != defaultPrompt {
 		t.Fatalf("fake=%+v", fake)
 	}
-	if fake.threadOpts.CWD == "" || fake.threadOpts.ProjectID != "desktop-alpha" || fake.projectListReads != 1 || fake.name != "donext alpha next roadmap step" {
+	if fake.threadOpts.CWD == "" || fake.threadOpts.ProjectID != "desktop-alpha" || fake.projectListReads != 1 || fake.name != "donext alpha 2026-08-30 12:33:36 +03:00 next roadmap step" {
 		t.Fatalf("opts=%+v name=%q", fake.threadOpts, fake.name)
 	}
 }
