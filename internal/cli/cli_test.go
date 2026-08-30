@@ -338,7 +338,7 @@ func TestPromptSources(t *testing.T) {
 		}
 		var stdout, stderr bytes.Buffer
 		code := Run(runArgsFor(t, repository, "--dry-run", "--prompt", "prompt.md"), &stdout, &stderr)
-		if code != 0 || !strings.Contains(stdout.String(), "prompt:\nprompt.md") || strings.Contains(stdout.String(), "file prompt") {
+		if code != 0 || !strings.Contains(stdout.String(), "prompt:\nprompt.md") || !strings.Contains(stdout.String(), orchestrationContract) || strings.Contains(stdout.String(), "file prompt") {
 			t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 		}
 	})
@@ -351,7 +351,7 @@ func TestPromptSources(t *testing.T) {
 		}
 		var stdout, stderr bytes.Buffer
 		code := Run(runArgsFor(t, repository, "--dry-run", "--prompt", "@"+path), &stdout, &stderr)
-		if code != 0 || !strings.Contains(stdout.String(), "prompt:\nprompt from file\n") {
+		if code != 0 || !strings.Contains(stdout.String(), "prompt:\nprompt from file\n") || !strings.Contains(stdout.String(), orchestrationContract) {
 			t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 		}
 	})
@@ -360,7 +360,7 @@ func TestPromptSources(t *testing.T) {
 		withPromptStdin(t, strings.NewReader("prompt from stdin\n"), false)
 		var stdout, stderr bytes.Buffer
 		code := Run(runArgs(t, "--dry-run", "--prompt", "-"), &stdout, &stderr)
-		if code != 0 || !strings.Contains(stdout.String(), "prompt:\nprompt from stdin\n") {
+		if code != 0 || !strings.Contains(stdout.String(), "prompt:\nprompt from stdin\n") || !strings.Contains(stdout.String(), orchestrationContract) {
 			t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 		}
 	})
@@ -438,8 +438,13 @@ func TestCustomPromptReachesTurnButNotLifecycleLog(t *testing.T) {
 	if code := Run(runArgsFor(t, repository, "--once", "--prompt", secretPrompt), &stdout, &stderr); code != 0 {
 		t.Fatalf("code=%d stderr=%q", code, stderr.String())
 	}
-	if fake.prompt != secretPrompt {
+	if fake.prompt != composePrompt(secretPrompt) {
 		t.Fatalf("prompt=%q", fake.prompt)
+	}
+	for _, want := range []string{"диагностируй причину", "повтори релевантную проверку", "внешнего блокера"} {
+		if !strings.Contains(fake.prompt, want) {
+			t.Fatalf("prompt lacks repair contract %q: %q", want, fake.prompt)
+		}
 	}
 	dir, _ := stateDirectory(identity.Repository)
 	data, err := os.ReadFile(filepath.Join(dir, "logs", identity.ID+".lifecycle.log"))

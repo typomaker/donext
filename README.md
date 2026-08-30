@@ -106,10 +106,13 @@ Each thread is named with its project and local launch timestamp, for example
 `donext my-project 2026-08-30 12:33:36 +03:00 next roadmap step`.
 The loop stops on a standalone `ORCHESTRATOR_NO_WORK` final response, failure,
 interruption, an interactive request, a standalone `ORCHESTRATOR_BLOCKED` final
-response, or the weekly usage budget. A blocked response is used when the goal
-cannot be completed because of the environment, permissions, a mandatory failed
-gate, or required user action. It records `blocked`, returns a nonzero exit code,
-and never starts another goal. Failures and
+response, or the weekly usage budget. A failed linter, test, coverage check,
+profiler, or log-based verification is feedback for the active thread: Codex is
+instructed to diagnose it, repair the current step, and rerun the relevant
+check. A blocked response is reserved for an external condition the current
+thread cannot fix, such as an unavailable environment, missing permissions, or
+required user action. It records `blocked`, returns a nonzero exit code, and
+never starts another goal. Failures and
 interruptions return a nonzero exit status; `completed`, `no_work`, and
 `weekly_usage_budget_reached` are successful terminal states.
 
@@ -127,8 +130,10 @@ mutually exclusive.
 - `-` reads redirected standard input.
 
 Empty prompts, missing or unreadable files, and terminal stdin are rejected
-before App Server starts. Without the flag, the built-in roadmap prompt is used.
-Prompts are never stored in `.donext` or lifecycle logs.
+before App Server starts. Without the flag, the built-in roadmap task is used.
+The orchestration completion contract is appended to every prompt source,
+including custom prompts, so failed verification is repaired before the turn
+stops. Prompts are never stored in `.donext` or lifecycle logs.
 
 ### Permissions and interactive requests
 

@@ -125,7 +125,11 @@ func resolvePrompt(value string, explicitlySet bool) (string, error) {
 	if strings.TrimSpace(prompt) == "" {
 		return "", errors.New("prompt is empty")
 	}
-	return prompt, nil
+	return composePrompt(prompt), nil
+}
+
+func composePrompt(task string) string {
+	return strings.TrimSpace(task) + "\n\n" + orchestrationContract
 }
 
 func statusCommand(args []string, stdout, stderr io.Writer) int {
@@ -197,7 +201,11 @@ type projectSpec struct {
 	ID, Name, Repository, Prompt, ApprovalPolicy, Sandbox, DesktopProjectID string
 }
 
-const defaultPrompt = "Выполни первый незавершённый шаг из ROADMAP.md полностью. За этот запуск выполни ровно один шаг. Если текущих шагов нет, ответь отдельной строкой ORCHESTRATOR_NO_WORK. Если шаг невозможно завершить из-за окружения, прав, обязательной провалившейся проверки или необходимости действия пользователя, объясни причину и ответь отдельной строкой ORCHESTRATOR_BLOCKED.\n"
+const defaultTaskPrompt = "Выполни первый незавершённый шаг из ROADMAP.md полностью. За этот запуск выполни ровно один шаг."
+
+const orchestrationContract = "После каждой проверки — линтера, теста, coverage gate, профайлера, анализа логов или другого обязательного gate — используй результат как обратную связь. Если проверка не прошла, диагностируй причину, исправь реализацию, тесты или конфигурацию в рамках текущего шага и повтори релевантную проверку. Не прекращай работу только из-за обычного провала проверки, если его можно исправить в текущем треде. Если текущих шагов нет, ответь отдельной строкой ORCHESTRATOR_NO_WORK. Если шаг невозможно завершить из-за внешнего блокера, который нельзя устранить в текущем треде (например, недоступное окружение, недостающие права или обязательное действие пользователя), объясни причину и ответь отдельной строкой ORCHESTRATOR_BLOCKED.\n"
+
+var defaultPrompt = composePrompt(defaultTaskPrompt)
 
 func runCommand(options runOptions, stdout, stderr io.Writer) int {
 	identity, err := projectid.Resolve(".")

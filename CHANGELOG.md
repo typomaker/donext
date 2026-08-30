@@ -9,6 +9,8 @@ after its first release.
 
 ### Fixed
 
+- Append a repair-and-retry completion contract to every prompt so fixable
+  linter, test, coverage, profiler, and log failures do not stop as blocked.
 - Negotiate the App Server `experimentalApi` capability required by
   `project/list` on current Codex Desktop versions.
 

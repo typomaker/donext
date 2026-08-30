@@ -51,6 +51,16 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-025 — Require repair after failed verification
+
+- Completed: 2026-08-30.
+- Result: every built-in and custom prompt now includes a completion contract
+  requiring Codex to diagnose, repair, and rerun fixable linter, test, coverage,
+  profiler, and log failures. `ORCHESTRATOR_BLOCKED` is reserved for external
+  blockers the active thread cannot resolve. Updated README and changelog.
+  Checks: focused CLI race tests; full race tests; full tests; vet; build; manual
+  custom-prompt dry run; and diff check.
+
 ### ORCH-024 — Confirm marker-only model completion in live output
 
 - Completed: 2026-08-30.
