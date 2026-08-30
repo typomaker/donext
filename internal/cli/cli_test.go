@@ -29,6 +29,8 @@ type fakeCodex struct {
 	interruptNoEvent bool
 	threadOpts       codex.ThreadOptions
 	name             string
+	names            []string
+	renameErr        error
 	prompt           string
 	outcomes         []string
 	currentThread    string
@@ -67,6 +69,10 @@ func (f *fakeCodex) StartThread(_ context.Context, opts codex.ThreadOptions) (st
 	return "thread-123", nil
 }
 func (f *fakeCodex) NameThread(_ context.Context, _ string, name string) error {
+	f.names = append(f.names, name)
+	if len(f.names) > 1 && f.renameErr != nil {
+		return f.renameErr
+	}
 	f.name = name
 	return nil
 }
@@ -508,7 +514,7 @@ func TestRunOnceCompleted(t *testing.T) {
 			t.Fatalf("default prompt contains project-owned behavior policy %q: %q", unwanted, fake.prompt)
 		}
 	}
-	if fake.threadOpts.CWD != identity.Repository || fake.name != "30 Aug 12:33 · next roadmap step" {
+	if fake.threadOpts.CWD != identity.Repository || fake.name != "30 Aug 12:33 · discovering task" {
 		t.Fatalf("opts=%+v name=%q", fake.threadOpts, fake.name)
 	}
 }
@@ -750,6 +756,40 @@ func TestRunVerbosePrintsLabeledRequestAndMultilineResponse(t *testing.T) {
 	}
 }
 
+func TestRunRenamesThreadFromHiddenTaskTitle(t *testing.T) {
+	withCurrentTime(t, time.Date(2026, time.August, 30, 15, 27, 41, 0, time.FixedZone("MSK", 3*60*60)))
+	fake := &fakeCodex{events: make(chan codex.Event, 2)}
+	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "DONEXT_TITLE:  ORCH-039   · Context-aware session titles\nStarting work."}
+	fake.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: "thread-123", TurnID: "turn-456", Status: "completed"}
+	close(fake.events)
+	withFakeCodex(t, fake)
+
+	var stdout, stderr bytes.Buffer
+	if code := Run(runArgs(t, "--once"), &stdout, &stderr); code != 0 {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+	wantNames := []string{"30 Aug 15:27 · discovering task", "ORCH-039 · Context-aware session titles · 30 Aug 15:27"}
+	if fmt.Sprint(fake.names) != fmt.Sprint(wantNames) {
+		t.Fatalf("names=%q want=%q", fake.names, wantNames)
+	}
+	if strings.Contains(stderr.String(), "DONEXT_TITLE") || !strings.Contains(stderr.String(), "> Starting work.") {
+		t.Fatalf("title marker was not hidden: %q", stderr.String())
+	}
+}
+
+func TestRunContinuesWhenDiscoveredTaskRenameFails(t *testing.T) {
+	fake := &fakeCodex{events: make(chan codex.Event, 2), renameErr: errors.New("rename unavailable")}
+	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "DONEXT_TITLE: task title"}
+	fake.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: "thread-123", TurnID: "turn-456", Status: "completed"}
+	close(fake.events)
+	withFakeCodex(t, fake)
+
+	var stdout, stderr bytes.Buffer
+	if code := Run(runArgs(t, "--once"), &stdout, &stderr); code != 0 || !strings.Contains(stderr.String(), "warning: rename thread") {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+}
+
 func TestRunWeeklyBudgetAllowsCompletedGoalToExceedBudget(t *testing.T) {
 	fake := &fakeCodex{events: make(chan codex.Event, 2), outcomes: []string{"completed", "completed"}, rateLimits: []codex.RateLimits{weeklyLimits(10, 2000), weeklyLimits(13, 2000)}}
 	withFakeCodex(t, fake)
@@ -845,10 +885,18 @@ func TestRunBlockedStopsContinuousExecutionAndLogsMetadata(t *testing.T) {
 }
 
 func TestVisibleModelOutputRemovesOnlyStandaloneControlMarkers(t *testing.T) {
-	input := "work in progress\r\nDONEXT_BLOCKED\r\nmarker DONEXT_NO_WORK in prose\r\nORCHESTRATOR_NO_WORK\r\n"
+	input := "work in progress\r\nDONEXT_TITLE: task title\r\nDONEXT_BLOCKED\r\nmarker DONEXT_NO_WORK in prose\r\nORCHESTRATOR_NO_WORK\r\n"
 	want := "work in progress\nmarker DONEXT_NO_WORK in prose\nORCHESTRATOR_NO_WORK"
 	if got := visibleModelOutput(input); got != want {
 		t.Fatalf("visible output=%q want=%q", got, want)
+	}
+}
+
+func TestTaskTitleFromOutputNormalizesAndBoundsTitle(t *testing.T) {
+	input := "progress\nDONEXT_TITLE:   ORCH-039   ·   " + strings.Repeat("я", 80)
+	title, found := taskTitleFromOutput(input)
+	if !found || len([]rune(title)) != 72 || !strings.HasPrefix(title, "ORCH-039 · я") {
+		t.Fatalf("title=%q found=%t runes=%d", title, found, len([]rune(title)))
 	}
 }
 

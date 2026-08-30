@@ -222,6 +222,10 @@ Failures during execution are not exit conditions. Failed tests, builds, command
 If you can still take any reasonable action yourself, continue working.
 
 The exit code must appear only as the final line of the final response.
+
+## Session title
+
+After determining the task, emit ` + "`DONEXT_TITLE: concise task identifier and title`" + ` as a standalone line exactly once. Keep the title under 72 characters. This line is orchestration metadata and is hidden from terminal output.
 `
 
 var defaultPrompt = composePrompt("")
@@ -382,7 +386,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 		return "failed", false
 	}
 	startedAt := currentTime()
-	threadName := startedAt.Format("02 Jan 15:04") + " · next roadmap step"
+	threadName := startedAt.Format("02 Jan 15:04") + " · discovering task"
 	if err := client.NameThread(ctx, threadID, threadName); err != nil {
 		_ = store.Write(state.State{Project: projectID, Status: "failed", ThreadID: threadID})
 		logLifecycle(store, stderr, projectID, "thread", "name_failed", map[string]string{"thread": threadID})
@@ -415,6 +419,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 	}
 
 	finalOutput := ""
+	taskTitleHandled := false
 	var tokenUsage *codex.Event
 	var grace <-chan time.Time
 	desiredStatus := ""
@@ -472,6 +477,18 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 			}
 			if event.Kind == codex.AgentMessageCompleted {
 				finalOutput = event.Text
+				if !taskTitleHandled {
+					if taskTitle, found := taskTitleFromOutput(event.Text); found {
+						taskTitleHandled = true
+						name := taskTitle + " · " + startedAt.Format("02 Jan 15:04")
+						if err := client.NameThread(ctx, threadID, name); err != nil {
+							logLifecycle(store, stderr, projectID, "thread", "rename_failed", map[string]string{"thread": threadID})
+							fmt.Fprintf(stderr, "warning: rename thread %s from discovered task: %v\n", threadID, err)
+						} else {
+							logLifecycle(store, stderr, projectID, "thread", "renamed", map[string]string{"thread": threadID})
+						}
+					}
+				}
 				if visible := visibleModelOutput(event.Text); visible != "" {
 					printMarkedMessage(stderr, '>', visible)
 				} else {
@@ -635,11 +652,33 @@ func visibleModelOutput(output string) string {
 	lines := strings.Split(strings.ReplaceAll(output, "\r\n", "\n"), "\n")
 	visible := lines[:0]
 	for _, line := range lines {
-		if !markers[strings.TrimSpace(line)] {
+		trimmed := strings.TrimSpace(line)
+		if !markers[trimmed] && !strings.HasPrefix(trimmed, "DONEXT_TITLE:") {
 			visible = append(visible, line)
 		}
 	}
 	return strings.TrimSpace(strings.Join(visible, "\n"))
+}
+
+func taskTitleFromOutput(output string) (string, bool) {
+	const prefix = "DONEXT_TITLE:"
+	const maxRunes = 72
+	for _, line := range strings.Split(strings.ReplaceAll(output, "\r\n", "\n"), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, prefix) {
+			continue
+		}
+		title := strings.Join(strings.Fields(strings.TrimPrefix(line, prefix)), " ")
+		if title == "" {
+			return "", false
+		}
+		runes := []rune(title)
+		if len(runes) > maxRunes {
+			title = strings.TrimSpace(string(runes[:maxRunes]))
+		}
+		return title, true
+	}
+	return "", false
 }
 
 func printTerminal(w io.Writer, project, threadID, status string) {

@@ -104,12 +104,14 @@ donext status
 ```
 
 Without `--once`, a new persisted thread is created after each successful goal.
-Each thread is named with its local launch time, for example
-`30 Aug 14:08 · next roadmap step`. The Desktop project folder already supplies
-the project context, so the title omits redundant `donext` and project prefixes,
-seconds, year, and UTC offset.
-On macOS, `donext` then sends the thread's `codex://threads/<id>` deep link to
-Codex Desktop in the background. This lets the running thread appear in the GUI
+Each thread starts with a temporary local discovery title, for example
+`30 Aug 14:08 · discovering task`. After Codex identifies the task from project
+context, the thread is renamed to a concise task-aware title such as
+`ORCH-039 · Context-aware session titles · 30 Aug 14:08`. The hidden title
+marker is normalized and bounded to 72 characters; a rename failure is only a
+warning and does not stop the task. On macOS, `donext` sends the thread's
+`codex://threads/<id>` deep link to Codex Desktop in the background. This lets
+the running thread appear in the GUI
 before its turn completes. A missing Desktop URL handler produces a warning but
 does not stop the roadmap run.
 The loop stops on a standalone `DONEXT_NO_WORK` final response, failure,

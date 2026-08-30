@@ -9,6 +9,8 @@ after its first release.
 
 ### Changed
 
+- Start sessions with a temporary discovery name, then rename them from a
+  hidden, normalized task-title marker emitted after Codex identifies the task.
 - Suppress raw App Server stderr in normal output while retaining it with
   `-v`/`--verbose`; actionable errors emitted by `donext` remain visible.
 - Replace verbose request/response text labels with directional `<` and `>`

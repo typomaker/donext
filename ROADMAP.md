@@ -44,13 +44,24 @@ custom task database, and forced Git commit management.
 These are outside the MVP until explicitly moved into "Current steps":
 
 - interactive project selector;
-- rename a managed thread after goal discovery to a task-aware title such as
-  `BC-02 · Funding authority · 30 Aug 14:08`;
 - defensive `--max-goals`;
 - additional transport implementations;
 - packaging and release automation.
 
 ## Step history
+
+### ORCH-039 — Name sessions from discovered task context
+
+- Completed: 2026-08-30.
+- Result: threads now start with a temporary discovery title and are renamed
+  from a hidden `DONEXT_TITLE:` marker after Codex identifies the task. Titles
+  are whitespace-normalized, Unicode-safe, bounded to 72 characters, and
+  suffixed with compact local launch time. Rename failures warn without stopping
+  the task, and title text is not persisted in lifecycle logs. Removed the
+  completed deferred item and updated the orchestration contract, README,
+  changelog, and deterministic CLI coverage. Checks: focused CLI/Codex race
+  tests; full race tests; vet; build; effective-prompt inspection; and diff
+  check.
 
 ### ORCH-038 — Timestamp live terminal activity
 
