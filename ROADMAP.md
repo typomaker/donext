@@ -50,6 +50,15 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-042 — State the configured weekly quota in budget updates
+
+- Completed: 2026-08-30.
+- Result: the normal `%` boundary log now identifies the relative value as the
+  remaining per-run budget and displays the configured percentage of weekly
+  quota in the same line. Updated README, changelog, and deterministic CLI
+  coverage. Checks: focused CLI tests; full tests; full race tests; vet; build;
+  and diff check.
+
 ### ORCH-041 — Focus normal completion output on remaining run budget
 
 - Completed: 2026-08-30.

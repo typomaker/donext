@@ -617,7 +617,7 @@ func printWeeklyBudget(w io.Writer, baseline, current, budget int, verbose bool)
 		fmt.Fprintf(w, "= weekly_usage_baseline: %d\n= weekly_usage_current: %d\n= weekly_budget_consumed: %d\n= weekly_budget: %d\n= weekly_budget_remaining: %d\n", baseline, current, delta, budget, remaining)
 		return
 	}
-	printMarkedLine(w, '%', fmt.Sprintf("weekly budget remaining: %.1f%%", float64(remaining)*100/float64(budget)))
+	printMarkedLine(w, '%', fmt.Sprintf("run budget remaining: %.1f%% of configured %d%% weekly quota", float64(remaining)*100/float64(budget), budget))
 }
 
 func logLifecycle(store *state.Store, stderr io.Writer, project, component, event string, fields map[string]string) {

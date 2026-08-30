@@ -10,8 +10,9 @@ after its first release.
 ### Changed
 
 - Focus normal session-boundary output on one timestamped `%` line containing
-  the percentage remaining from the weekly budget configured at launch. Move
-  session metadata and token/context diagnostics to `-v`/`--verbose`.
+  the percentage remaining from the weekly budget configured at launch and the
+  configured share of weekly quota itself. Move session metadata and
+  token/context diagnostics to `-v`/`--verbose`.
 - Start sessions with a temporary discovery name, then rename them from a
   hidden, normalized task-title marker emitted after Codex identifies the task.
 - Suppress raw App Server stderr in normal output while retaining it with

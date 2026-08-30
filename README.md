@@ -192,8 +192,9 @@ stops successfully before another thread is created.
 The active turn is never interrupted, so a completed goal can overshoot the
 budget. After each completed session, normal output prints only the percentage
 remaining from the budget configured at process launch, for example
-`16:34:24.259 % weekly budget remaining: 60.0%`. The dedicated `%` marker denotes
-a session boundary budget update. `-v` or `--verbose` additionally prints the
+`16:34:24.259 % run budget remaining: 60.0% of configured 10% weekly quota`.
+The dedicated `%` marker denotes a session boundary budget update. `-v` or
+`--verbose` additionally prints the
 baseline, current weekly usage, consumed budget, configured budget, raw remaining
 points, and terminal session metadata. Missing, ambiguous, reset, or anomalous
 weekly-window data fails closed.

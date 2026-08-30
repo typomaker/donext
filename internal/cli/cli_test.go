@@ -682,7 +682,7 @@ func TestRunContinuousStopsBeforeNextGoalAtWeeklyBudget(t *testing.T) {
 	withFakeCodex(t, fake)
 	var stdout, stderr bytes.Buffer
 	code := Run(runArgs(t, "--weekly-usage-budget", "1"), &stdout, &stderr)
-	want := "16:34:24.259 % weekly budget remaining: 0.0%\n"
+	want := "16:34:24.259 % run budget remaining: 0.0% of configured 1% weekly quota\n"
 	if code != 0 || fake.threadStarts != 1 || fake.rateLimitReads != 3 || stdout.String() != want {
 		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
 	}
@@ -791,7 +791,7 @@ func TestRunWeeklyBudgetAllowsCompletedGoalToExceedBudget(t *testing.T) {
 	withFakeCodex(t, fake)
 	var stdout, stderr bytes.Buffer
 	code := Run(runArgs(t, "--weekly-usage-budget", "2"), &stdout, &stderr)
-	if code != 0 || fake.threadStarts != 1 || !strings.Contains(stdout.String(), "% weekly budget remaining: 0.0%") {
+	if code != 0 || fake.threadStarts != 1 || !strings.Contains(stdout.String(), "% run budget remaining: 0.0% of configured 2% weekly quota") {
 		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
 	}
 }
