@@ -52,6 +52,17 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-033 — Present terminal markers as session exit codes
+
+- Completed: 2026-08-30.
+- Result: replaced the marker contract with concise session exit-code semantics.
+  `DONEXT_NO_WORK` is an exit-0 outcome after completed work with no actionable
+  plan; `DONEXT_BLOCKED` is reserved for progress that requires external
+  intervention. Fixable execution failures remain nonterminal, and codes are
+  requested only as the final response line. Updated tests, README, and
+  changelog. Checks: focused CLI race tests; inspected the effective dry-run
+  prompt; full race tests; full tests; vet; build; and diff check.
+
 ### ORCH-032 — Limit the built-in prompt to terminal markers
 
 - Completed: 2026-08-30.

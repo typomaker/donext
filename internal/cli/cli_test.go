@@ -423,7 +423,7 @@ func TestPromptErrors(t *testing.T) {
 	})
 }
 
-func TestCustomPromptKeepsOnlyMarkerContractAndDoesNotReachLogs(t *testing.T) {
+func TestCustomPromptKeepsOnlyExitCodeContractAndDoesNotReachLogs(t *testing.T) {
 	fake := &fakeCodex{events: make(chan codex.Event, 1)}
 	fake.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: "thread-123", TurnID: "turn-456", Status: "completed"}
 	close(fake.events)
@@ -441,9 +441,9 @@ func TestCustomPromptKeepsOnlyMarkerContractAndDoesNotReachLogs(t *testing.T) {
 	if strings.Contains(stderr.String(), secretPrompt) {
 		t.Fatalf("prompt leaked into normal terminal output: %q", stderr.String())
 	}
-	for _, want := range []string{"exceptional terminal conditions", "do not define a goal", "no further plan of work", "requires external intervention", "exhaust locally available solutions", "do not output a control marker"} {
+	for _, want := range []string{"## Exit codes", "only when terminating the session", "exit 0", "blocked exit", "not exit conditions", "continue working", "final line of the final response"} {
 		if !strings.Contains(fake.prompt, want) {
-			t.Fatalf("prompt lacks marker contract %q: %q", want, fake.prompt)
+			t.Fatalf("prompt lacks exit-code contract %q: %q", want, fake.prompt)
 		}
 	}
 	for _, unwanted := range []string{"unfinished prior work", "missing required commit", "sole goal of the current thread", "canonical project root", "rerun the relevant check", "complete exactly one goal"} {
@@ -498,12 +498,12 @@ func TestRunOnceCompleted(t *testing.T) {
 	if !strings.Contains(fake.prompt, "DONEXT_BLOCKED") {
 		t.Fatalf("default prompt lacks blocked contract: %q", fake.prompt)
 	}
-	for _, want := range []string{"only to exceptional terminal conditions", "no further plan of work", "requires external intervention", "Do not use either marker", "continue according to the user and project instructions"} {
+	for _, want := range []string{"## Exit codes", "Emit a session exit code only when terminating the session", "exit 0", "blocked exit", "Failures during execution are not exit conditions", "continue working", "only as the final line of the final response"} {
 		if !strings.Contains(fake.prompt, want) {
 			t.Fatalf("default prompt lacks marker rule %q: %q", want, fake.prompt)
 		}
 	}
-	for _, unwanted := range []string{"Independently determine", "complete exactly one goal", "canonical project root", "rerun the relevant check", "unfinished prior work"} {
+	for _, unwanted := range []string{"Independently determine", "complete exactly one goal", "canonical project root", "rerun the relevant check", "unfinished prior work", "control markers apply", "Do not use either marker"} {
 		if strings.Contains(fake.prompt, unwanted) {
 			t.Fatalf("default prompt contains project-owned behavior policy %q: %q", unwanted, fake.prompt)
 		}

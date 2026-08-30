@@ -210,9 +210,18 @@ type projectSpec struct {
 	Verbose                                               bool
 }
 
-const orchestrationContract = `The following control markers apply only to exceptional terminal conditions. They do not define a goal, choose work, limit the number of tasks, or override behavior provided by the user or the project's instructions and documentation.
+const orchestrationContract = `## Exit codes
 
-Return DONEXT_NO_WORK on a separate line only when the available project instructions and documentation contain no further plan of work. Return DONEXT_BLOCKED on a separate line only when continuing the current work requires external intervention, such as a user decision or action, unavailable credentials or permissions, or an external-system change that cannot be performed from the project environment. Before returning DONEXT_BLOCKED, exhaust locally available solutions and briefly explain the external intervention required. Do not use either marker for uncertainty, ordinary implementation errors, or failed checks that can be resolved locally. If neither exceptional condition applies, do not output a control marker and continue according to the user and project instructions.
+Emit a session exit code only when terminating the session.
+
+- ` + "`DONEXT_NO_WORK`" + ` — exit 0: the current task is complete and no actionable work remains in the available project plan.
+- ` + "`DONEXT_BLOCKED`" + ` — blocked exit: progress is impossible without external input, access, credentials, or unavailable infrastructure.
+
+Failures during execution are not exit conditions. Failed tests, builds, commands, or implementation attempts must be investigated and fixed when possible.
+
+If you can still take any reasonable action yourself, continue working.
+
+The exit code must appear only as the final line of the final response.
 `
 
 var defaultPrompt = composePrompt("")

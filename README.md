@@ -114,7 +114,6 @@ before its turn completes. A missing Desktop URL handler produces a warning but
 does not stop the roadmap run.
 The loop stops on a standalone `DONEXT_NO_WORK` final response, failure,
 interruption, an interactive request, a standalone `DONEXT_BLOCKED` final
-response, or the weekly usage budget. A failed linter, test, coverage check,
 response, or the weekly usage budget. Task selection, scope, verification,
 recovery, Git, commit, and working-directory policies belong to each project's
 own instructions; donext does not inject them. A blocked response is reserved
@@ -138,13 +137,15 @@ mutually exclusive.
 - `-` reads redirected standard input.
 
 Empty prompts, missing or unreadable files, and terminal stdin are rejected
-before App Server starts. Without the flag, the built-in English marker prompt
-is used. The same marker contract is appended to every custom prompt. It does
-not select goals or impose task, verification, recovery, Git, path, or commit
-policy. `DONEXT_NO_WORK` is allowed only when the project documentation contains
-no further plan. `DONEXT_BLOCKED` is allowed only when continuing current work
-requires external intervention after local solutions are exhausted. Prompts are
-never stored in `.donext` or lifecycle logs.
+before App Server starts. Without the flag, the built-in English session
+exit-code prompt is used. The same exit-code contract is appended to every
+custom prompt. It does not select goals or impose task, verification, recovery,
+Git, path, or commit policy. `DONEXT_NO_WORK` is a successful session exit only
+after the current task is complete and the available project plan has no actionable work.
+`DONEXT_BLOCKED` is a blocked session exit only when progress is impossible
+without external intervention. The marker must be the final line of the final
+response; ordinary failures must be investigated while reasonable local action
+remains. Prompts are never stored in `.donext` or lifecycle logs.
 
 ### Permissions and interactive requests
 

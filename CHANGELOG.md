@@ -9,6 +9,8 @@ after its first release.
 
 ### Changed
 
+- Present terminal markers to Codex as session exit codes, require them on the
+  final line only, and explicitly treat fixable execution failures as nonterminal.
 - Limit the built-in and appended prompt to exceptional terminal-marker rules;
   goal selection, scope, checks, recovery, Git, path, and commit policies now
   come exclusively from the user and managed project.
