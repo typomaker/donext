@@ -114,8 +114,12 @@ therefore cannot attach to the GUI-owned process. The separately supported
 daemon/socket transport is a different App Server instance. On macOS, the
 installed app registers the `codex://threads/<id>` deep link, so `donext` uses
 that best-effort navigation path after naming a new thread and before starting
-its turn. This makes the GUI load the persisted thread while work is active
-without coupling orchestration success to Desktop availability.
+its turn. In practice Desktop can defer listing a thread while the separate
+`donext` App Server still has it loaded. Closing that server releases the
+persisted session, so continuous orchestration uses a fresh stdio App Server per
+goal. Completed goals can become visible while the next goal runs; the active
+goal may remain absent until its own server closes. This avoids relying on an
+unverified mid-turn handoff or `thread/resume` sequence.
 
 ## Implementation conclusion
 

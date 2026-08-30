@@ -111,9 +111,13 @@ context, the thread is renamed to a concise task-aware title such as
 marker is normalized and bounded to 72 characters; a rename failure is only a
 warning and does not stop the task. On macOS, `donext` sends the thread's
 `codex://threads/<id>` deep link to Codex Desktop in the background. This lets
-the running thread appear in the GUI
-before its turn completes. A missing Desktop URL handler produces a warning but
-does not stop the roadmap run.
+Desktop navigate to the persisted thread when the GUI can load it. A missing
+Desktop URL handler produces a warning but does not stop the roadmap run.
+Codex Desktop may not list a thread while the separate `donext` App Server still
+has it loaded. `donext` therefore closes that server after every goal and starts
+a fresh one for the next goal, releasing completed sessions to Desktop during a
+continuous run. The currently active session can still remain absent until its
+turn finishes and that goal's server closes.
 The loop stops on a standalone `DONEXT_NO_WORK` final response, failure,
 interruption, an interactive request, a standalone `DONEXT_BLOCKED` final
 response, or the weekly usage budget. Task selection, scope, verification,
@@ -156,9 +160,10 @@ Every `thread/start` explicitly receives safe defaults:
 - `--approval-policy never` (also: `on-request`, `untrusted`);
 - `--sandbox workspace-write` (also: `read-only`, `danger-full-access`).
 
-App Server always starts as `codex app-server --stdio` from `PATH`. Approval and
-user-input requests are rejected, the active turn is interrupted, and unattended
-orchestration exits with an error rather than answering on the user's behalf.
+Each goal uses a fresh `codex app-server --stdio` process started from `PATH`.
+Approval and user-input requests are rejected, the active turn is interrupted,
+and unattended orchestration exits with an error rather than answering on the
+user's behalf.
 
 ### Codex Desktop projects
 
@@ -170,8 +175,11 @@ does not send the obsolete experimental `projectId` field.
 Codex Desktop owns a private stdio App Server process rather than publishing its
 transport socket. Consequently, `donext` cannot attach to that exact process.
 It runs its own documented App Server client and uses the Desktop deep link to
-make each new thread visible immediately. The separately managed `codex
-app-server daemon` control socket is not the App Server process owned by the GUI.
+request navigation to each new thread. Because Desktop may defer loading a
+thread owned by another App Server, `donext` restarts its server between goals;
+completed sessions can then appear without waiting for the whole continuous run
+to exit. The separately managed `codex app-server daemon` control socket is not
+the App Server process owned by the GUI.
 
 ### Weekly usage budget
 

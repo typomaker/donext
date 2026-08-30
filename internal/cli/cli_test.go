@@ -649,7 +649,7 @@ func TestRunContinuousCompletedCompletedNoWork(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	if starts != 1 || fake.threadStarts != 3 || fake.turnStarts != 3 || fake.closed != 1 {
+	if starts != 3 || fake.threadStarts != 3 || fake.turnStarts != 3 || fake.closed != 3 {
 		t.Fatalf("starts=%d fake=%+v", starts, fake)
 	}
 	want := "project: alpha\nthread: thread-1\nstatus: completed\n" +

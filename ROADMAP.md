@@ -30,7 +30,7 @@ one succeeds.
 The MVP includes `donext` from the current directory; `--once`, `--dry-run`,
 `--prompt TEXT|@FILE|-`, `-v`/`--verbose`, and `--weekly-usage-budget N`;
 `donext status`; one App
-Server per process; one persisted thread per goal; real terminal-event waiting;
+Server per goal; one persisted thread per goal; real terminal-event waiting;
 stopping on no-work, failure, or interruption; independent project locks;
 state/recovery; tests; and documentation.
 
@@ -49,6 +49,17 @@ These are outside the MVP until explicitly moved into "Current steps":
 - packaging and release automation.
 
 ## Step history
+
+### ORCH-040 — Release completed sessions to Codex Desktop during continuous runs
+
+- Completed: 2026-08-30.
+- Result: continuous runs now close the stdio App Server after every managed
+  goal and start a fresh server for the next one, releasing completed persisted
+  sessions to Codex Desktop before the whole run exits. Rate-limit enforcement,
+  interruption handling, lifecycle logging, and one thread per goal remain
+  intact. Documented that the currently active session may stay absent until its
+  goal completes. Checks: focused CLI/Codex tests; focused race tests; full
+  tests; vet; build; and diff check.
 
 ### ORCH-039 — Name sessions from discovered task context
 
@@ -312,7 +323,8 @@ These are outside the MVP until explicitly moved into "Current steps":
 - Completed: 2026-08-30.
 - Result: added a loop that reuses one App Server but creates a new thread per
   successful goal, stopping on no-work, failure, or interruption. Checks:
-  repeated race tests, full tests, vet, and build.
+  repeated race tests, full tests, vet, and build. Superseded by ORCH-040, which
+  restarts App Server between goals to release completed threads to Desktop.
 
 ### ORCH-006 — Implement state, locking, and recovery
 

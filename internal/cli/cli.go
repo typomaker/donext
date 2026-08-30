@@ -279,32 +279,34 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 	if project.Verbose {
 		appServerStderr = stderr
 	}
-	client, err := startCodex(ctx, command, appServerStderr)
-	if err != nil {
-		_ = store.Write(state.State{Project: projectID, Status: "failed"})
-		logLifecycle(store, stderr, projectID, "app-server", "start_failed", nil)
-		printTerminal(stdout, projectName, "-", "failed")
-		fmt.Fprintf(stderr, "start app-server: %v\n", err)
-		return 1
-	}
-	logLifecycle(store, stderr, projectID, "app-server", "started", nil)
-	defer func() {
-		if err := client.Close(); err != nil {
-			fmt.Fprintf(stderr, "close app-server: %v\n", err)
-		}
-		logLifecycle(store, stderr, projectID, "app-server", "stopped", nil)
-	}()
 	var baseline *codex.RateLimitWindow
 	for {
+		client, err := startCodex(ctx, command, appServerStderr)
+		if err != nil {
+			_ = store.Write(state.State{Project: projectID, Status: "failed"})
+			logLifecycle(store, stderr, projectID, "app-server", "start_failed", nil)
+			printTerminal(stdout, projectName, "-", "failed")
+			fmt.Fprintf(stderr, "start app-server: %v\n", err)
+			return 1
+		}
+		logLifecycle(store, stderr, projectID, "app-server", "started", nil)
+		closeClient := func() {
+			if err := client.Close(); err != nil {
+				fmt.Fprintf(stderr, "close app-server: %v\n", err)
+			}
+			logLifecycle(store, stderr, projectID, "app-server", "stopped", nil)
+		}
 		if weeklyUsageBudget > 0 {
 			limits, err := client.ReadRateLimits(ctx)
 			if err != nil {
+				closeClient()
 				_ = store.Write(state.State{Project: projectID, Status: "failed"})
 				fmt.Fprintf(stderr, "read account rate limits: %v\n", err)
 				return 1
 			}
 			current, err := weeklyWindow(limits)
 			if err != nil {
+				closeClient()
 				_ = store.Write(state.State{Project: projectID, Status: "failed"})
 				fmt.Fprintf(stderr, "weekly account rate limit is unavailable; cannot enforce --weekly-usage-budget: %v\n", err)
 				return 1
@@ -312,12 +314,14 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 			if baseline == nil {
 				baseline = current
 			} else if err := validateSameWeeklyWindow(*baseline, *current); err != nil {
+				closeClient()
 				_ = store.Write(state.State{Project: projectID, Status: "failed"})
 				fmt.Fprintf(stderr, "weekly account rate limit changed unexpectedly; cannot enforce --weekly-usage-budget: %v\n", err)
 				return 1
 			}
 			delta := current.UsedPercent - baseline.UsedPercent
 			if delta >= weeklyUsageBudget {
+				closeClient()
 				_ = store.Write(state.State{Project: projectID, Status: "weekly_usage_budget_reached"})
 				fields := map[string]string{"baseline": fmt.Sprint(baseline.UsedPercent), "current_usage": fmt.Sprint(current.UsedPercent), "consumed_delta": fmt.Sprint(delta), "budget": fmt.Sprint(weeklyUsageBudget)}
 				logLifecycle(store, stderr, projectID, "donext", "weekly_usage_budget_reached", fields)
@@ -326,6 +330,7 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 			}
 		}
 		status, ok := runGoal(ctx, client, project, store, baseline, weeklyUsageBudget, signals, stdout, stderr)
+		closeClient()
 		if !ok {
 			return 1
 		}
