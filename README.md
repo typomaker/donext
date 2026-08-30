@@ -112,8 +112,8 @@ On macOS, `donext` then sends the thread's `codex://threads/<id>` deep link to
 Codex Desktop in the background. This lets the running thread appear in the GUI
 before its turn completes. A missing Desktop URL handler produces a warning but
 does not stop the roadmap run.
-The loop stops on a standalone `ORCHESTRATOR_NO_WORK` final response, failure,
-interruption, an interactive request, a standalone `ORCHESTRATOR_BLOCKED` final
+The loop stops on a standalone `DONEXT_NO_WORK` final response, failure,
+interruption, an interactive request, a standalone `DONEXT_BLOCKED` final
 response, or the weekly usage budget. A failed linter, test, coverage check,
 profiler, or log-based verification is feedback for the active thread: Codex is
 instructed to diagnose it, repair the current step, and rerun the relevant
@@ -150,11 +150,11 @@ used. The built-in prompt and appended orchestration contract are in English.
 The orchestration completion contract is appended to every prompt source,
 including custom prompts. It tells Codex to consult all applicable project
 instructions, determine one goal autonomously, and repair failed verification
-before stopping. `ORCHESTRATOR_NO_WORK` is allowed only when those sources do
-not provide enough direction to determine any next goal. `ORCHESTRATOR_BLOCKED`
-is allowed only after a goal is known and permitted ways to solve a concrete
-problem have been exhausted. Prompts are never stored in `.donext` or lifecycle
-logs.
+before stopping. `DONEXT_NO_WORK` is allowed only when the project documentation
+contains no further plan. `DONEXT_BLOCKED` is allowed only when continuing the
+current goal requires external intervention after permitted local solutions
+have been exhausted. Locally diagnosable implementation and check failures are
+not blockers. Prompts are never stored in `.donext` or lifecycle logs.
 
 ### Permissions and interactive requests
 

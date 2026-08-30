@@ -52,6 +52,17 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-031 — Rename and narrow terminal markers
+
+- Completed: 2026-08-30.
+- Result: replaced the control protocol with `DONEXT_NO_WORK` and
+  `DONEXT_BLOCKED`; old marker names are no longer interpreted. The prompt now
+  reserves no-work for an absent further project plan and blocked for a current
+  goal requiring external intervention after local options are exhausted.
+  Updated README and changelog. Checks: focused CLI race tests; inspected the
+  effective dry-run prompt; full race tests; full tests; vet; build; and diff
+  check.
+
 ### ORCH-030 — Make stop markers a last resort
 
 - Completed: 2026-08-30.
@@ -110,7 +121,7 @@ These are outside the MVP until explicitly moved into "Current steps":
 - Completed: 2026-08-30.
 - Result: every built-in and custom prompt now includes a completion contract
   requiring Codex to diagnose, repair, and rerun fixable linter, test, coverage,
-  profiler, and log failures. `ORCHESTRATOR_BLOCKED` is reserved for external
+  profiler, and log failures. `DONEXT_BLOCKED` is reserved for external
   blockers the active thread cannot resolve. Updated README and changelog.
   Checks: focused CLI race tests; full race tests; full tests; vet; build; manual
   custom-prompt dry run; and diff check.
@@ -143,7 +154,7 @@ These are outside the MVP until explicitly moved into "Current steps":
 ### ORCH-021 — Stop cleanly when a managed goal is blocked
 
 - Completed: 2026-08-30.
-- Result: added the standalone `ORCHESTRATOR_BLOCKED` final-response contract;
+- Result: added the standalone `DONEXT_BLOCKED` final-response contract;
   blocked state and terminal output; a metadata-only `event=blocked` lifecycle
   record; nonzero exit; and continuous-loop termination. The default prompt,
   README, and changelog document environment, permission, gate, and user-action

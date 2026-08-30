@@ -77,7 +77,7 @@ func (f *fakeCodex) StartTurn(_ context.Context, _, prompt string) (string, erro
 		turnID := fmt.Sprintf("turn-%d", f.turnStarts)
 		status := f.outcomes[f.turnStarts-1]
 		if status == "no_work" {
-			f.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: f.currentThread, TurnID: turnID, Text: "ORCHESTRATOR_NO_WORK"}
+			f.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: f.currentThread, TurnID: turnID, Text: "DONEXT_NO_WORK"}
 			status = "completed"
 		}
 		f.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: f.currentThread, TurnID: turnID, Status: status}
@@ -441,7 +441,7 @@ func TestCustomPromptReachesTurnButNotLifecycleLog(t *testing.T) {
 	if strings.Contains(stderr.String(), secretPrompt) {
 		t.Fatalf("prompt leaked into normal terminal output: %q", stderr.String())
 	}
-	for _, want := range []string{"concrete goal", "primary instruction", "every applicable source of truth", "sole goal of the current thread", "without starting another goal", "canonical project root", "paths relative to that directory", "diagnose the cause", "rerun the relevant check", "only when, after inspecting all available", "exhaust the permitted ways", "Do not use either marker"} {
+	for _, want := range []string{"concrete goal", "primary instruction", "every applicable source of truth", "sole goal of the current thread", "without starting another goal", "canonical project root", "paths relative to that directory", "diagnose the cause", "rerun the relevant check", "only when, after inspecting all available", "exhaust the permitted local ways", "do not use either marker"} {
 		if !strings.Contains(fake.prompt, want) {
 			t.Fatalf("prompt lacks repair contract %q: %q", want, fake.prompt)
 		}
@@ -490,10 +490,10 @@ func TestRunOnceCompleted(t *testing.T) {
 	if fake.threadStarts != 1 || fake.turnStarts != 1 || fake.closed != 1 || fake.prompt != defaultPrompt {
 		t.Fatalf("fake=%+v", fake)
 	}
-	if !strings.Contains(fake.prompt, "ORCHESTRATOR_BLOCKED") {
+	if !strings.Contains(fake.prompt, "DONEXT_BLOCKED") {
 		t.Fatalf("default prompt lacks blocked contract: %q", fake.prompt)
 	}
-	for _, want := range []string{"Independently determine", "every applicable source of truth", "cannot independently determine any next goal", "a goal has been identified but a specific problem"} {
+	for _, want := range []string{"Independently determine", "every applicable source of truth", "there is no further planned goal", "cannot continue without external intervention", "Do not use DONEXT_BLOCKED for implementation errors"} {
 		if !strings.Contains(fake.prompt, want) {
 			t.Fatalf("default prompt lacks autonomous stop rule %q: %q", want, fake.prompt)
 		}
@@ -766,8 +766,8 @@ func TestRunRejectsInvalidWeeklyUsageBudget(t *testing.T) {
 
 func TestRunOnceRecognizesNoWorkOnlyInFinalAgentOutput(t *testing.T) {
 	fake := &fakeCodex{events: make(chan codex.Event, 3)}
-	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "other", TurnID: "turn-456", Text: "ORCHESTRATOR_NO_WORK"}
-	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "ORCHESTRATOR_NO_WORK\n"}
+	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "other", TurnID: "turn-456", Text: "DONEXT_NO_WORK"}
+	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "DONEXT_NO_WORK\n"}
 	fake.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: "thread-123", TurnID: "turn-456", Status: "completed"}
 	close(fake.events)
 	withFakeCodex(t, fake)
@@ -777,7 +777,7 @@ func TestRunOnceRecognizesNoWorkOnlyInFinalAgentOutput(t *testing.T) {
 	if code != 0 || !strings.Contains(stdout.String(), "status: no_work\n") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
-	if strings.Contains(stderr.String(), "ORCHESTRATOR_NO_WORK") || !strings.Contains(stderr.String(), "> [response completed with no visible output]") {
+	if strings.Contains(stderr.String(), "DONEXT_NO_WORK") || !strings.Contains(stderr.String(), "> [response completed with no visible output]") {
 		t.Fatalf("control-only response leaked to terminal: %q", stderr.String())
 	}
 }
@@ -786,8 +786,8 @@ func TestRunBlockedStopsContinuousExecutionAndLogsMetadata(t *testing.T) {
 	repository := fixtureProject(t)
 	identity := fixtureIdentity(t, repository)
 	fake := &fakeCodex{events: make(chan codex.Event, 3)}
-	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "other", TurnID: "turn-456", Text: "ORCHESTRATOR_BLOCKED"}
-	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "loopback is unavailable\n\nORCHESTRATOR_BLOCKED\n"}
+	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "other", TurnID: "turn-456", Text: "DONEXT_BLOCKED"}
+	fake.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: "thread-123", TurnID: "turn-456", Text: "loopback is unavailable\n\nDONEXT_BLOCKED\n"}
 	fake.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: "thread-123", TurnID: "turn-456", Status: "completed"}
 	close(fake.events)
 	withFakeCodex(t, fake)
@@ -797,7 +797,7 @@ func TestRunBlockedStopsContinuousExecutionAndLogsMetadata(t *testing.T) {
 	if code != 1 || fake.threadStarts != 1 || !strings.Contains(stdout.String(), "status: blocked\n") {
 		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
 	}
-	if strings.Contains(stderr.String(), "ORCHESTRATOR_BLOCKED") || !strings.Contains(stderr.String(), "> loopback is unavailable") {
+	if strings.Contains(stderr.String(), "DONEXT_BLOCKED") || !strings.Contains(stderr.String(), "> loopback is unavailable") {
 		t.Fatalf("blocked response was not filtered: %q", stderr.String())
 	}
 	current, err := state.New(state.ProjectDir(identity.Repository)).Read(identity.ID)
@@ -815,8 +815,8 @@ func TestRunBlockedStopsContinuousExecutionAndLogsMetadata(t *testing.T) {
 }
 
 func TestVisibleModelOutputRemovesOnlyStandaloneControlMarkers(t *testing.T) {
-	input := "work in progress\r\nORCHESTRATOR_BLOCKED\r\nmarker ORCHESTRATOR_NO_WORK in prose\r\n"
-	want := "work in progress\nmarker ORCHESTRATOR_NO_WORK in prose"
+	input := "work in progress\r\nDONEXT_BLOCKED\r\nmarker DONEXT_NO_WORK in prose\r\nORCHESTRATOR_NO_WORK\r\n"
+	want := "work in progress\nmarker DONEXT_NO_WORK in prose\nORCHESTRATOR_NO_WORK"
 	if got := visibleModelOutput(input); got != want {
 		t.Fatalf("visible output=%q want=%q", got, want)
 	}

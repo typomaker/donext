@@ -9,10 +9,13 @@ after its first release.
 
 ### Changed
 
+- Rename stop markers to `DONEXT_NO_WORK` and `DONEXT_BLOCKED`; the former means
+  that no further project plan exists, while the latter is reserved for goals
+  that require external intervention after local options are exhausted.
 - Make stop markers a last resort: Codex now consults all applicable project
-  instructions before using `ORCHESTRATOR_NO_WORK`, and uses
-  `ORCHESTRATOR_BLOCKED` only for a known goal with an unresolvable problem. The
-  built-in task and orchestration contract are now entirely in English.
+  instructions before using `DONEXT_NO_WORK`, and uses
+  `DONEXT_BLOCKED` only when a known goal requires external intervention. The
+  built-in task and orchestration contract are entirely in English.
 - Hide model requests and remove the `model response:` label in normal output;
   prefix response lines with `>` and add `-v`/`--verbose` labeled request and
   response blocks.
@@ -37,7 +40,7 @@ after its first release.
 - Live thread/turn progress, terminal-only model responses, and post-session
   token, context-window, and weekly-budget statistics.
 - Local launch timestamps with UTC offsets in managed Codex thread names.
-- Explicit `ORCHESTRATOR_BLOCKED` handling that records blocked state and stops
+- Explicit `DONEXT_BLOCKED` handling that records blocked state and stops
   continuous execution after an incomplete goal.
 - Control markers are consumed internally instead of appearing in live model
   output.

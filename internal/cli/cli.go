@@ -214,7 +214,7 @@ Before starting a new goal, check for unfinished prior work. If uncommitted chan
 
 Run repository commands from the canonical project root by default. If you choose a narrower working directory, pass only paths relative to that directory and do not duplicate its prefix. After every linter, test, coverage gate, profiler, log analysis, or other required check, use the result as feedback. If a check fails, diagnose the cause, fix the implementation, tests, or configuration within the current goal, and rerun the relevant check. Do not stop merely because of an ordinary check failure that can be fixed in the current thread.
 
-Return ORCHESTRATOR_NO_WORK on a separate line only when, after inspecting all available project instructions and documentation, you cannot independently determine any next goal. Return ORCHESTRATOR_BLOCKED on a separate line only when a goal has been identified but a specific problem cannot be resolved with the available tools and actions under the existing project instructions. Before returning ORCHESTRATOR_BLOCKED, exhaust the permitted ways to solve the problem and briefly explain the unresolvable cause. Do not use either marker while the project documentation still provides a way to identify a goal and continue working.
+Return DONEXT_NO_WORK on a separate line only when, after inspecting all available project instructions and documentation, there is no further planned goal. Return DONEXT_BLOCKED on a separate line only when the current goal cannot continue without external intervention, such as a required user decision or action, unavailable credentials or permissions, or a dependency on an external system that cannot be resolved from the project environment. Before returning DONEXT_BLOCKED, exhaust the permitted local ways to solve the problem and briefly explain what external intervention is required. Do not use DONEXT_BLOCKED for implementation errors or failed checks that can be diagnosed and fixed locally, and do not use either marker while the documented project plan still provides a goal that can be advanced.
 `
 
 var defaultPrompt = composePrompt(defaultTaskPrompt)
@@ -483,9 +483,9 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 				status = desiredStatus
 			}
 			if status == "completed" {
-				if containsMarkerLine(finalOutput, "ORCHESTRATOR_BLOCKED") {
+				if containsMarkerLine(finalOutput, "DONEXT_BLOCKED") {
 					status = "blocked"
-				} else if containsMarkerLine(finalOutput, "ORCHESTRATOR_NO_WORK") {
+				} else if containsMarkerLine(finalOutput, "DONEXT_NO_WORK") {
 					status = "no_work"
 				}
 			}
@@ -594,8 +594,8 @@ func containsMarkerLine(output, marker string) bool {
 
 func visibleModelOutput(output string) string {
 	markers := map[string]bool{
-		"ORCHESTRATOR_NO_WORK": true,
-		"ORCHESTRATOR_BLOCKED": true,
+		"DONEXT_NO_WORK": true,
+		"DONEXT_BLOCKED": true,
 	}
 	lines := strings.Split(strings.ReplaceAll(output, "\r\n", "\n"), "\n")
 	visible := lines[:0]
