@@ -9,6 +9,8 @@ after its first release.
 
 ### Fixed
 
+- Shorten managed Desktop thread titles to the readable local format
+  `30 Aug 14:08 · next roadmap step` without redundant project prefixes.
 - Reveal each newly created thread in Codex Desktop on macOS before its turn
   starts, and rely on canonical `cwd` grouping instead of the now-empty
   experimental `project/list`/`projectId` path.

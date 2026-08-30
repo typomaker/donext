@@ -43,12 +43,22 @@ custom task database, and forced Git commit management.
 These are outside the MVP until explicitly moved into "Current steps":
 
 - interactive project selector;
-- automatic thread renaming after goal discovery;
+- rename a managed thread after goal discovery to a task-aware title such as
+  `BC-02 · Funding authority · 30 Aug 14:08`;
 - defensive `--max-goals`;
 - additional transport implementations;
 - packaging and release automation.
 
 ## Step history
+
+### ORCH-027 — Shorten managed thread names
+
+- Completed: 2026-08-30.
+- Result: managed Desktop titles now use the compact local format
+  `30 Aug 14:08 · next roadmap step`, omitting redundant CLI/project prefixes,
+  year, seconds, and UTC offset. Task-aware post-discovery naming remains a
+  documented deferred candidate. Updated README and changelog. Checks: focused
+  CLI race tests; full race tests; full tests; vet; build; and diff check.
 
 ### ORCH-026 — Reveal managed threads live in Codex Desktop
 

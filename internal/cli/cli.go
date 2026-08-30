@@ -356,7 +356,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 		return "failed", false
 	}
 	startedAt := currentTime()
-	threadName := fmt.Sprintf("donext %s %s next roadmap step", projectName, startedAt.Format("2006-01-02 15:04:05 -07:00"))
+	threadName := startedAt.Format("02 Jan 15:04") + " · next roadmap step"
 	if err := client.NameThread(ctx, threadID, threadName); err != nil {
 		_ = store.Write(state.State{Project: projectID, Status: "failed", ThreadID: threadID})
 		logLifecycle(store, stderr, projectID, "thread", "name_failed", map[string]string{"thread": threadID})

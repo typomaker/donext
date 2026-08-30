@@ -490,7 +490,7 @@ func TestRunOnceCompleted(t *testing.T) {
 	if !strings.Contains(fake.prompt, "ORCHESTRATOR_BLOCKED") {
 		t.Fatalf("default prompt lacks blocked contract: %q", fake.prompt)
 	}
-	if fake.threadOpts.CWD != identity.Repository || fake.name != "donext alpha 2026-08-30 12:33:36 +03:00 next roadmap step" {
+	if fake.threadOpts.CWD != identity.Repository || fake.name != "30 Aug 12:33 · next roadmap step" {
 		t.Fatalf("opts=%+v name=%q", fake.threadOpts, fake.name)
 	}
 }

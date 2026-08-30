@@ -102,8 +102,10 @@ donext status
 ```
 
 Without `--once`, a new persisted thread is created after each successful goal.
-Each thread is named with its project and local launch timestamp, for example
-`donext my-project 2026-08-30 12:33:36 +03:00 next roadmap step`.
+Each thread is named with its local launch time, for example
+`30 Aug 14:08 · next roadmap step`. The Desktop project folder already supplies
+the project context, so the title omits redundant `donext` and project prefixes,
+seconds, year, and UTC offset.
 On macOS, `donext` then sends the thread's `codex://threads/<id>` deep link to
 Codex Desktop in the background. This lets the running thread appear in the GUI
 before its turn completes. A missing Desktop URL handler produces a warning but
