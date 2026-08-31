@@ -50,6 +50,15 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-045 — Continue across weekly usage-window rollovers
+
+- Completed: 2026-08-31.
+- Result: weekly account rate-limit rollovers now reset the current process's
+  budget baseline and allow the managed loop to continue. Missing, ambiguous,
+  decreasing-within-window, and invalid usage data still fail closed. Updated
+  README and changelog. Checks: focused CLI tests; full tests; full race tests;
+  vet; build; and diff check.
+
 ### ORCH-044 — Log the loop completion reason
 
 - Completed: 2026-08-31.

@@ -315,10 +315,15 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 			if baseline == nil {
 				baseline = current
 			} else if err := validateSameWeeklyWindow(*baseline, *current); err != nil {
-				closeClient()
-				_ = store.Write(state.State{Project: projectID, Status: "failed"})
-				fmt.Fprintf(stderr, "weekly account rate limit changed unexpectedly; cannot enforce --weekly-usage-budget: %v\n", err)
-				return 1
+				if errors.Is(err, errWeeklyWindowRolledOver) {
+					fmt.Fprintln(stderr, "warning: weekly account rate-limit window rolled over; resetting the run budget baseline")
+					baseline = current
+				} else {
+					closeClient()
+					_ = store.Write(state.State{Project: projectID, Status: "failed"})
+					fmt.Fprintf(stderr, "weekly account rate limit changed unexpectedly; cannot enforce --weekly-usage-budget: %v\n", err)
+					return 1
+				}
 			}
 			delta := current.UsedPercent - baseline.UsedPercent
 			if delta >= weeklyUsageBudget {
@@ -362,6 +367,8 @@ func printLoopCompletion(w io.Writer, reason string) {
 
 const weeklyWindowMinutes int64 = 7 * 24 * 60
 
+var errWeeklyWindowRolledOver = errors.New("weekly window rolled over")
+
 func weeklyWindow(limits codex.RateLimits) (*codex.RateLimitWindow, error) {
 	var weekly []*codex.RateLimitWindow
 	for _, window := range []*codex.RateLimitWindow{limits.Primary, limits.Secondary} {
@@ -380,7 +387,7 @@ func weeklyWindow(limits codex.RateLimits) (*codex.RateLimitWindow, error) {
 
 func validateSameWeeklyWindow(baseline, current codex.RateLimitWindow) error {
 	if baseline.ResetsAt != nil && current.ResetsAt != nil && *baseline.ResetsAt != *current.ResetsAt {
-		return errors.New("weekly window rolled over")
+		return errWeeklyWindowRolledOver
 	}
 	if current.UsedPercent < baseline.UsedPercent {
 		return fmt.Errorf("usage decreased from %d to %d", baseline.UsedPercent, current.UsedPercent)
@@ -617,9 +624,18 @@ func printUsageSummary(ctx context.Context, client codex.Client, usage *codex.Ev
 		return
 	}
 	current, err := weeklyWindow(limits)
-	if err != nil || validateSameWeeklyWindow(*weeklyBaseline, *current) != nil {
+	if err != nil {
 		fmt.Fprintln(stderr, "warning: post-session weekly usage is unavailable")
 		return
+	}
+	if err := validateSameWeeklyWindow(*weeklyBaseline, *current); err != nil {
+		if errors.Is(err, errWeeklyWindowRolledOver) {
+			fmt.Fprintln(stderr, "warning: weekly account rate-limit window rolled over; resetting the run budget baseline")
+			*weeklyBaseline = *current
+		} else {
+			fmt.Fprintln(stderr, "warning: post-session weekly usage is unavailable")
+			return
+		}
 	}
 	printWeeklyBudget(stdout, weeklyBaseline.UsedPercent, current.UsedPercent, weeklyBudget, verbose)
 }

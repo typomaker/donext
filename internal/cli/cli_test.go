@@ -838,7 +838,6 @@ func TestRunWeeklyBudgetFailsClosed(t *testing.T) {
 		limits []codex.RateLimits
 	}{
 		{name: "unavailable", limits: []codex.RateLimits{{}}},
-		{name: "rollover", limits: []codex.RateLimits{weeklyLimits(20, 2000), weeklyLimits(1, 3000)}},
 		{name: "decreased", limits: []codex.RateLimits{weeklyLimits(20, 2000), weeklyLimits(19, 2000)}},
 		{name: "invalid", limits: []codex.RateLimits{weeklyLimits(101, 2000)}},
 	}
@@ -853,6 +852,27 @@ func TestRunWeeklyBudgetFailsClosed(t *testing.T) {
 				t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
 			}
 		})
+	}
+}
+
+func TestRunWeeklyBudgetRebasesAndContinuesAfterWindowRollover(t *testing.T) {
+	fake := &fakeCodex{
+		events:     make(chan codex.Event, 6),
+		outcomes:   []string{"completed", "no_work", "no_work"},
+		rateLimits: []codex.RateLimits{weeklyLimits(20, 2000), weeklyLimits(1, 3000)},
+	}
+	withFakeCodex(t, fake)
+
+	var stdout, stderr bytes.Buffer
+	code := Run(runArgs(t, "--weekly-usage-budget", "5"), &stdout, &stderr)
+	if code != 0 || fake.threadStarts != 3 || fake.turnStarts != 3 {
+		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "weekly account rate-limit window rolled over; resetting the run budget baseline") {
+		t.Fatalf("stderr=%q", stderr.String())
+	}
+	if strings.Contains(stderr.String(), "cannot enforce --weekly-usage-budget") {
+		t.Fatalf("rollover stopped budget enforcement: %q", stderr.String())
 	}
 }
 

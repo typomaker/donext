@@ -9,6 +9,9 @@ after its first release.
 
 ### Changed
 
+- Continue managed loops across weekly account rate-limit rollovers by resetting
+  the per-run usage baseline to the new window; other anomalous window changes
+  still fail closed.
 - Focus normal session-boundary output on one timestamped `%` line containing
   the percentage remaining from the weekly budget configured at launch and the
   configured share of weekly quota itself. Move session metadata and

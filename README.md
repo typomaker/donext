@@ -201,8 +201,9 @@ remaining from the budget configured at process launch, for example
 The dedicated `%` marker denotes a session boundary budget update. `-v` or
 `--verbose` additionally prints the
 baseline, current weekly usage, consumed budget, configured budget, raw remaining
-points, and terminal session metadata. Missing, ambiguous, reset, or anomalous
-weekly-window data fails closed.
+points, and terminal session metadata. When the account's weekly window rolls
+over, the CLI resets the current run's baseline to the new window and continues;
+missing, ambiguous, or otherwise anomalous weekly-window data fails closed.
 
 ### Live session output and token usage
 
