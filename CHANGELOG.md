@@ -56,6 +56,8 @@ after its first release.
 
 ### Added
 
+- A timestamped `=` system-status line explaining why the managed goal loop
+  stopped.
 - Compact local `HH:MM:SS.mmm` timestamps on every marked live activity line.
 - Complete approval-policy and sandbox value lists in `donext --help`.
 - Live thread/turn progress, terminal-only model responses, and post-session

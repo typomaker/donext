@@ -220,7 +220,10 @@ the summary supplied by the protocol. Terminal session metadata and token/contex
 diagnostics are hidden in normal output and available with `-v` or `--verbose`;
 verbose system statistics use the `=` marker. A configured weekly budget is the
 only normal completion summary and uses a timestamped `%` line showing the
-remaining percentage of that launch budget. Raw App Server diagnostics are also
+remaining percentage of that launch budget. When the managed loop ends, a
+timestamped `=` system line states whether it stopped because single-session
+mode completed, no work was confirmed, a goal failed or was interrupted, or
+the weekly budget was reached. Raw App Server diagnostics are also
 suppressed in normal output and available in verbose mode; actionable errors
 reported by `donext` remain visible in both modes. Model messages and live
 activity are terminal-only and are never copied into state or lifecycle logs.

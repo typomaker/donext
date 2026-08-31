@@ -632,6 +632,7 @@ func TestRunRecoversStaleStateWithNewThread(t *testing.T) {
 }
 
 func TestRunContinuousCompletedCompletedNoWork(t *testing.T) {
+	withCurrentTime(t, time.Date(2026, time.August, 31, 12, 34, 56, 789_000_000, time.FixedZone("MSK", 3*60*60)))
 	fake := &fakeCodex{
 		events:   make(chan codex.Event, 7),
 		outcomes: []string{"completed", "completed", "no_work", "no_work"},
@@ -655,6 +656,21 @@ func TestRunContinuousCompletedCompletedNoWork(t *testing.T) {
 	want := ""
 	if stdout.String() != want {
 		t.Fatalf("stdout=%q want=%q", stdout.String(), want)
+	}
+	if !strings.Contains(stderr.String(), "12:34:56.789 = loop stopped: no actionable work confirmed by two consecutive sessions\n") {
+		t.Fatalf("stderr=%q", stderr.String())
+	}
+}
+
+func TestRunOnceLogsLoopCompletionReason(t *testing.T) {
+	withCurrentTime(t, time.Date(2026, time.August, 31, 12, 34, 56, 789_000_000, time.FixedZone("MSK", 3*60*60)))
+	fake := &fakeCodex{events: make(chan codex.Event, 2), outcomes: []string{"completed"}}
+	withFakeCodex(t, fake)
+
+	var stdout, stderr bytes.Buffer
+	code := Run(runArgs(t, "--once"), &stdout, &stderr)
+	if code != 0 || !strings.Contains(stderr.String(), "12:34:56.789 = loop stopped: single-session mode completed with status completed\n") {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 }
 
@@ -686,6 +702,9 @@ func TestRunContinuousStopsAfterTerminalFailure(t *testing.T) {
 			if code != 1 || fake.threadStarts != 1 || fake.turnStarts != 1 {
 				t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
 			}
+			if !strings.Contains(stderr.String(), "= loop stopped: goal ended with status "+status) {
+				t.Fatalf("stderr=%q", stderr.String())
+			}
 		})
 	}
 }
@@ -699,6 +718,9 @@ func TestRunContinuousStopsBeforeNextGoalAtWeeklyBudget(t *testing.T) {
 	want := "16:34:24.259 % run budget remaining: 0.0% of configured 1% weekly quota\n"
 	if code != 0 || fake.threadStarts != 1 || fake.rateLimitReads != 3 || stdout.String() != want {
 		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "16:34:24.259 = loop stopped: weekly usage budget reached\n") {
+		t.Fatalf("stderr=%q", stderr.String())
 	}
 }
 

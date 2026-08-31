@@ -330,26 +330,34 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 				if project.Verbose {
 					printWeeklyBudget(stdout, baseline.UsedPercent, current.UsedPercent, weeklyUsageBudget, true)
 				}
+				printLoopCompletion(stderr, "weekly usage budget reached")
 				return 0
 			}
 		}
 		status, ok := runGoal(ctx, client, project, store, baseline, weeklyUsageBudget, signals, stdout, stderr)
 		closeClient()
 		if !ok {
+			printLoopCompletion(stderr, "goal ended with status "+status)
 			return 1
 		}
 		if once {
+			printLoopCompletion(stderr, "single-session mode completed with status "+status)
 			return 0
 		}
 		if status == "no_work" {
 			consecutiveNoWork++
 			if consecutiveNoWork == 2 {
+				printLoopCompletion(stderr, "no actionable work confirmed by two consecutive sessions")
 				return 0
 			}
 			continue
 		}
 		consecutiveNoWork = 0
 	}
+}
+
+func printLoopCompletion(w io.Writer, reason string) {
+	printMarkedLine(w, '=', "loop stopped: "+reason)
 }
 
 const weeklyWindowMinutes int64 = 7 * 24 * 60

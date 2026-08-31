@@ -50,6 +50,16 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-044 — Log the loop completion reason
+
+- Completed: 2026-08-31.
+- Result: every managed-loop exit now prints one timestamped `=` system-status
+  line stating whether single-session mode completed, two fresh sessions
+  confirmed no work, a goal failed or was interrupted, or the configured weekly
+  budget was reached. Updated README, changelog, and deterministic CLI coverage.
+  Checks: focused CLI tests; full tests; full race tests; vet; build; and diff
+  check.
+
 ### ORCH-043 — Confirm no-work results in a fresh session
 
 - Completed: 2026-08-30.
