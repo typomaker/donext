@@ -49,6 +49,9 @@ after its first release.
 
 ### Fixed
 
+- Leave a signal-aware three-second window between continuous-run App Servers,
+  configurable with `--inter-goal-delay`, so Codex Desktop can refresh completed
+  sessions before the next server starts.
 - Require two consecutive `DONEXT_NO_WORK` results from independent sessions
   before a continuous run stops, and reset the confirmation after completed
   work. This prevents one contradictory no-work marker from ending a roadmap.

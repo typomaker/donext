@@ -50,6 +50,17 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-049 — Pause between continuous-run App Servers
+
+- Completed: 2026-08-31.
+- Result: continuous runs now leave a signal-aware three-second server-free
+  window after closing one goal's App Server and before starting the next.
+  Added `--inter-goal-delay DURATION` with duration parsing, zero-disable, and
+  negative-value validation; updated dry-run output, help, README, protocol
+  notes, changelog, and deterministic ordering/default/validation coverage.
+  Checks: focused CLI tests; full tests; full race tests; vet; build; installed
+  binary help smoke; and diff check.
+
 ### ORCH-048 — Retry transient model-capacity failures
 
 - Completed: 2026-08-31.

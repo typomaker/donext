@@ -31,6 +31,10 @@ var stateDirectory = func(repository string) (string, error) {
 var shutdownGracePeriod = 3 * time.Second
 var modelCapacityRetryDelay = 10 * time.Second
 var modelCapacityRetryAfter = time.After
+
+const defaultInterGoalDelay = 3 * time.Second
+
+var interGoalDelayAfter = time.After
 var currentTime = time.Now
 var revealDesktopThread = revealThreadInDesktop
 var promptStdin io.Reader = os.Stdin
@@ -58,6 +62,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	approvalPolicy := root.String("approval-policy", "never", "Codex approval policy: never, on-request, or untrusted")
 	sandbox := root.String("sandbox", "workspace-write", "Codex sandbox: read-only, workspace-write, or danger-full-access")
 	weeklyUsageBudget := root.Int("weekly-usage-budget", 0, "weekly quota percentage points available to this run")
+	interGoalDelay := root.Duration("inter-goal-delay", defaultInterGoalDelay, "delay between continuous-run App Servers")
 	promptValue := root.String("prompt", "", "prompt text, @FILE, or - for stdin")
 	root.Usage = func() { usage(stderr) }
 	if err := root.Parse(args); err != nil {
@@ -86,12 +91,16 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "--weekly-usage-budget requires an integer from 1 to 100")
 		return 2
 	}
+	if *interGoalDelay < 0 {
+		fmt.Fprintln(stderr, "--inter-goal-delay must not be negative")
+		return 2
+	}
 	prompt, err := resolvePrompt(*promptValue, flagWasSet(root, "prompt"))
 	if err != nil {
 		fmt.Fprintf(stderr, "--prompt: %v\n", err)
 		return 2
 	}
-	return runCommand(runOptions{once: *once, dryRun: *dryRun, verbose: verbose, approvalPolicy: *approvalPolicy, sandbox: *sandbox, weeklyUsageBudget: *weeklyUsageBudget, prompt: prompt}, stdout, stderr)
+	return runCommand(runOptions{once: *once, dryRun: *dryRun, verbose: verbose, approvalPolicy: *approvalPolicy, sandbox: *sandbox, weeklyUsageBudget: *weeklyUsageBudget, interGoalDelay: *interGoalDelay, prompt: prompt}, stdout, stderr)
 }
 
 func flagWasSet(flags *flag.FlagSet, name string) bool {
@@ -204,6 +213,7 @@ type runOptions struct {
 	once, dryRun, verbose   bool
 	approvalPolicy, sandbox string
 	weeklyUsageBudget       int
+	interGoalDelay          time.Duration
 	prompt                  string
 }
 
@@ -240,15 +250,15 @@ func runCommand(options runOptions, stdout, stderr io.Writer) int {
 	}
 	project := projectSpec{ID: identity.ID, Name: identity.Name, Repository: identity.Repository, Prompt: options.prompt, ApprovalPolicy: options.approvalPolicy, Sandbox: options.sandbox, Verbose: options.verbose}
 	if options.dryRun {
-		fmt.Fprintf(stdout, "project: %s\nrepository: %s\ncommand: codex app-server --stdio\napproval_policy: %s\nsandbox: %s\nonce: %t\nprompt:\n%s", project.Name, project.Repository, project.ApprovalPolicy, project.Sandbox, options.once, project.Prompt)
+		fmt.Fprintf(stdout, "project: %s\nrepository: %s\ncommand: codex app-server --stdio\napproval_policy: %s\nsandbox: %s\nonce: %t\ninter_goal_delay: %s\nprompt:\n%s", project.Name, project.Repository, project.ApprovalPolicy, project.Sandbox, options.once, options.interGoalDelay, project.Prompt)
 		return 0
 	}
 	signals, stopSignals := subscribeSignals()
 	defer stopSignals()
-	return runGoals(context.Background(), "codex", project, options.once, options.weeklyUsageBudget, signals, stdout, stderr)
+	return runGoals(context.Background(), "codex", project, options.once, options.weeklyUsageBudget, options.interGoalDelay, signals, stdout, stderr)
 }
 
-func runGoals(ctx context.Context, command string, project projectSpec, once bool, weeklyUsageBudget int, signals <-chan os.Signal, stdout, stderr io.Writer) int {
+func runGoals(ctx context.Context, command string, project projectSpec, once bool, weeklyUsageBudget int, interGoalDelay time.Duration, signals <-chan os.Signal, stdout, stderr io.Writer) int {
 	projectID, projectName := project.ID, project.Name
 	stateDir, err := stateDirectory(project.Repository)
 	if err != nil {
@@ -357,9 +367,28 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 				printLoopCompletion(stderr, "no actionable work confirmed by two consecutive sessions")
 				return 0
 			}
-			continue
+		} else {
+			consecutiveNoWork = 0
 		}
-		consecutiveNoWork = 0
+		if !waitBetweenGoals(ctx, signals, interGoalDelay) {
+			_ = store.Write(state.State{Project: projectID, Status: "interrupted"})
+			printLoopCompletion(stderr, "interrupted between sessions")
+			return 1
+		}
+	}
+}
+
+func waitBetweenGoals(ctx context.Context, signals <-chan os.Signal, delay time.Duration) bool {
+	if delay == 0 {
+		return true
+	}
+	select {
+	case <-interGoalDelayAfter(delay):
+		return true
+	case <-ctx.Done():
+		return false
+	case <-signals:
+		return false
 	}
 }
 
@@ -783,7 +812,7 @@ func warnGitState(repository string, stderr io.Writer) {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "usage: donext [--once|--dry-run] [-v|--verbose] [--prompt TEXT|@FILE|-] [--approval-policy POLICY] [--sandbox MODE] [--weekly-usage-budget N]")
+	fmt.Fprintln(w, "usage: donext [--once|--dry-run] [-v|--verbose] [--prompt TEXT|@FILE|-] [--approval-policy POLICY] [--sandbox MODE] [--weekly-usage-budget N] [--inter-goal-delay DURATION]")
 	fmt.Fprintln(w, "       donext status")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "options:")
@@ -793,6 +822,8 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "      never (default), on-request, untrusted")
 	fmt.Fprintln(w, "  --sandbox MODE")
 	fmt.Fprintln(w, "      workspace-write (default), read-only, danger-full-access")
+	fmt.Fprintln(w, "  --inter-goal-delay DURATION")
+	fmt.Fprintln(w, "      delay between continuous-run App Servers (default 3s)")
 }
 
 func validApprovalPolicy(value string) bool {

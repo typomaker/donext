@@ -123,10 +123,17 @@ func withFakeCodex(t *testing.T, fake *fakeCodex) {
 	old := startCodex
 	startCodex = func(context.Context, string, io.Writer) (codex.Client, error) { return fake, nil }
 	oldReveal := revealDesktopThread
+	oldInterGoalDelayAfter := interGoalDelayAfter
 	revealDesktopThread = func(string) error { return nil }
+	interGoalDelayAfter = func(time.Duration) <-chan time.Time {
+		ch := make(chan time.Time, 1)
+		ch <- time.Time{}
+		return ch
+	}
 	t.Cleanup(func() {
 		startCodex = old
 		revealDesktopThread = oldReveal
+		interGoalDelayAfter = oldInterGoalDelayAfter
 	})
 }
 
@@ -335,7 +342,7 @@ func TestLifecycleLogContainsMetadataButNotPrompt(t *testing.T) {
 func TestDryRunAfterProject(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run(runArgs(t, "--dry-run"), &stdout, &stderr)
-	if code != 0 || !strings.Contains(stdout.String(), "project: alpha") || !strings.Contains(stdout.String(), "command: codex app-server --stdio") || !strings.Contains(stdout.String(), "approval_policy: never\nsandbox: workspace-write") {
+	if code != 0 || !strings.Contains(stdout.String(), "project: alpha") || !strings.Contains(stdout.String(), "command: codex app-server --stdio") || !strings.Contains(stdout.String(), "approval_policy: never\nsandbox: workspace-write\nonce: false\ninter_goal_delay: 3s") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 }
@@ -935,6 +942,38 @@ func TestRunRejectsInvalidWeeklyUsageBudget(t *testing.T) {
 		if code != 2 || !strings.Contains(stderr.String(), "integer from 1 to 100") {
 			t.Fatalf("value=%s code=%d stderr=%q", value, code, stderr.String())
 		}
+	}
+}
+
+func TestRunUsesConfiguredDelayAfterClosingServer(t *testing.T) {
+	fake := &fakeCodex{events: make(chan codex.Event, 2), outcomes: []string{"completed", "failed"}}
+	withFakeCodex(t, fake)
+	delayObserved := make(chan time.Duration, 1)
+	interGoalDelayAfter = func(delay time.Duration) <-chan time.Time {
+		if fake.closed != 1 {
+			t.Fatalf("delay started before first App Server closed: closed=%d", fake.closed)
+		}
+		delayObserved <- delay
+		ch := make(chan time.Time, 1)
+		ch <- time.Time{}
+		return ch
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run(runArgs(t, "--inter-goal-delay", "750ms"), &stdout, &stderr)
+	if code != 1 || fake.threadStarts != 2 {
+		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
+	}
+	if got := <-delayObserved; got != 750*time.Millisecond {
+		t.Fatalf("delay=%s", got)
+	}
+}
+
+func TestRunRejectsNegativeInterGoalDelay(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run(runArgs(t, "--inter-goal-delay", "-1s"), &stdout, &stderr)
+	if code != 2 || !strings.Contains(stderr.String(), "must not be negative") {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 }
 

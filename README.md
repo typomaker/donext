@@ -81,7 +81,7 @@ through its normal rules.
 ```text
 donext [--once|--dry-run] [-v|--verbose] [--prompt TEXT|@FILE|-]
        [--approval-policy POLICY] [--sandbox MODE]
-       [--weekly-usage-budget N]
+       [--weekly-usage-budget N] [--inter-goal-delay DURATION]
 donext status
 ```
 
@@ -99,6 +99,7 @@ donext --prompt @prompt.md
 printf 'Complete step ORCH-123\n' | donext --prompt -
 donext --approval-policy never --sandbox workspace-write
 donext --weekly-usage-budget 5
+donext --inter-goal-delay 5s # override the default three-second GUI release window
 donext -v                      # show labeled model requests and responses
 donext status
 ```
@@ -115,9 +116,12 @@ Desktop navigate to the persisted thread when the GUI can load it. A missing
 Desktop URL handler produces a warning but does not stop the roadmap run.
 Codex Desktop may not list a thread while the separate `donext` App Server still
 has it loaded. `donext` therefore closes that server after every goal and starts
-a fresh one for the next goal, releasing completed sessions to Desktop during a
-continuous run. The currently active session can still remain absent until its
-turn finishes and that goal's server closes.
+a fresh one for the next goal. It waits three seconds between those processes by
+default, giving Desktop a window to refresh completed sessions during a
+continuous run. `--inter-goal-delay DURATION` overrides that signal-aware pause;
+durations use values such as `500ms`, `3s`, or `1m`, and `0` disables it. The
+currently active session can still remain absent until its turn finishes and
+that goal's server closes.
 In continuous mode, a standalone `DONEXT_NO_WORK` final response starts one
 fresh independent session with the normal prompt. The loop stops only after two
 consecutive sessions report `DONEXT_NO_WORK`; any completed goal resets that

@@ -119,7 +119,8 @@ that best-effort navigation path after naming a new thread and before starting
 its turn. In practice Desktop can defer listing a thread while the separate
 `donext` App Server still has it loaded. Closing that server releases the
 persisted session, so continuous orchestration uses a fresh stdio App Server per
-goal. Completed goals can become visible while the next goal runs; the active
+goal and leaves a three-second server-free window by default before starting the
+next one. Completed goals can become visible while the next goal runs; the active
 goal may remain absent until its own server closes. This avoids relying on an
 unverified mid-turn handoff or `thread/resume` sequence.
 
