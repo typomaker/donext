@@ -33,6 +33,7 @@ type fakeCodex struct {
 	renameErr        error
 	prompt           string
 	outcomes         []string
+	turnErrors       []string
 	currentThread    string
 	rateLimits       []codex.RateLimits
 	rateLimitErr     error
@@ -86,7 +87,11 @@ func (f *fakeCodex) StartTurn(_ context.Context, _, prompt string) (string, erro
 			f.events <- codex.Event{Kind: codex.AgentMessageCompleted, ThreadID: f.currentThread, TurnID: turnID, Text: "DONEXT_NO_WORK"}
 			status = "completed"
 		}
-		f.events <- codex.Event{Kind: codex.TurnCompleted, ThreadID: f.currentThread, TurnID: turnID, Status: status}
+		event := codex.Event{Kind: codex.TurnCompleted, ThreadID: f.currentThread, TurnID: turnID, Status: status}
+		if f.turnStarts <= len(f.turnErrors) {
+			event.ErrorCode = f.turnErrors[f.turnStarts-1]
+		}
+		f.events <- event
 		return turnID, nil
 	}
 	return "turn-456", nil
@@ -130,6 +135,17 @@ func withCurrentTime(t *testing.T, value time.Time) {
 	old := currentTime
 	currentTime = func() time.Time { return value }
 	t.Cleanup(func() { currentTime = old })
+}
+
+func withImmediateModelCapacityRetry(t *testing.T) {
+	t.Helper()
+	old := modelCapacityRetryAfter
+	modelCapacityRetryAfter = func(time.Duration) <-chan time.Time {
+		ch := make(chan time.Time, 1)
+		ch <- time.Time{}
+		return ch
+	}
+	t.Cleanup(func() { modelCapacityRetryAfter = old })
 }
 
 func withPromptStdin(t *testing.T, input io.Reader, terminal bool) {
@@ -706,6 +722,42 @@ func TestRunContinuousStopsAfterTerminalFailure(t *testing.T) {
 				t.Fatalf("stderr=%q", stderr.String())
 			}
 		})
+	}
+}
+
+func TestRunRetriesModelCapacityFailureInSameSession(t *testing.T) {
+	withImmediateModelCapacityRetry(t)
+	fake := &fakeCodex{
+		events:     make(chan codex.Event, 2),
+		outcomes:   []string{"failed", "completed"},
+		turnErrors: []string{"serverOverloaded"},
+	}
+	withFakeCodex(t, fake)
+
+	var stdout, stderr bytes.Buffer
+	code := Run(runArgs(t, "--once"), &stdout, &stderr)
+	if code != 0 || fake.threadStarts != 1 || fake.turnStarts != 2 || fake.closed != 1 {
+		t.Fatalf("code=%d fake=%+v stdout=%q stderr=%q", code, fake, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "= model capacity unavailable; retrying current session in 10s") {
+		t.Fatalf("stderr=%q", stderr.String())
+	}
+	if fake.prompt != "Continue the current task after the transient model-capacity failure." {
+		t.Fatalf("retry prompt=%q", fake.prompt)
+	}
+}
+
+func TestModelCapacityErrorCompatibility(t *testing.T) {
+	for _, event := range []codex.Event{
+		{ErrorCode: "serverOverloaded"},
+		{ErrorMessage: "Selected model is at capacity. Please try a different model."},
+	} {
+		if !isModelCapacityError(event) {
+			t.Fatalf("event=%+v was not recognized", event)
+		}
+	}
+	if isModelCapacityError(codex.Event{ErrorCode: "internalServerError", ErrorMessage: "model failed"}) {
+		t.Fatal("non-capacity failure was recognized as retryable")
 	}
 }
 

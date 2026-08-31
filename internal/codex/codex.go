@@ -66,6 +66,8 @@ type Event struct {
 	ThreadID      string
 	TurnID        string
 	Status        string
+	ErrorCode     string
+	ErrorMessage  string
 	Text          string
 	Paths         []string
 	LastUsage     TokenUsage

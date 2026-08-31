@@ -141,7 +141,7 @@ func TestFullLifecycleAndRouting(t *testing.T) {
 	f.send(map[string]any{"method": "item/completed", "params": map[string]any{"threadId": "th-1", "turnId": "tu-1", "completedAtMs": 1, "item": map[string]any{"id": "patch-1", "type": "fileChange", "status": "completed", "changes": []map[string]any{{"path": "main.go", "kind": "update", "diff": ""}}}}})
 	f.send(map[string]any{"method": "item/completed", "params": map[string]any{"threadId": "th-1", "turnId": "tu-1", "completedAtMs": 1, "item": map[string]any{"id": "item-1", "type": "agentMessage", "text": "done"}}})
 	f.send(map[string]any{"method": "thread/tokenUsage/updated", "params": map[string]any{"threadId": "th-1", "turnId": "tu-1", "tokenUsage": map[string]any{"last": map[string]any{"inputTokens": 80, "cachedInputTokens": 20, "outputTokens": 10, "reasoningOutputTokens": 4, "totalTokens": 90}, "total": map[string]any{"inputTokens": 80, "cachedInputTokens": 20, "outputTokens": 10, "reasoningOutputTokens": 4, "totalTokens": 90}, "modelContextWindow": 1000}}})
-	f.send(map[string]any{"method": "turn/completed", "params": map[string]any{"threadId": "th-1", "turn": map[string]any{"id": "tu-1", "status": "interrupted"}}})
+	f.send(map[string]any{"method": "turn/completed", "params": map[string]any{"threadId": "th-1", "turn": map[string]any{"id": "tu-1", "status": "failed", "error": map[string]any{"message": "Selected model is at capacity. Please try a different model.", "codexErrorInfo": "serverOverloaded"}}}})
 	e := <-c.Events()
 	if e.Kind != CommandStarted || e.Text != "go test ./..." {
 		t.Fatalf("event=%+v", e)
@@ -163,7 +163,7 @@ func TestFullLifecycleAndRouting(t *testing.T) {
 		t.Fatalf("event=%+v", e)
 	}
 	e = <-c.Events()
-	if e.Kind != TurnCompleted || e.ThreadID != "th-1" || e.TurnID != "tu-1" || e.Status != "interrupted" {
+	if e.Kind != TurnCompleted || e.ThreadID != "th-1" || e.TurnID != "tu-1" || e.Status != "failed" || e.ErrorCode != "serverOverloaded" || !strings.Contains(e.ErrorMessage, "at capacity") {
 		t.Fatalf("event=%+v", e)
 	}
 	_ = f.conn.Close()

@@ -122,10 +122,15 @@ In continuous mode, a standalone `DONEXT_NO_WORK` final response starts one
 fresh independent session with the normal prompt. The loop stops only after two
 consecutive sessions report `DONEXT_NO_WORK`; any completed goal resets that
 confirmation. `--once` still stops after its single session. The loop also stops
-on failure, interruption, an interactive request, a standalone `DONEXT_BLOCKED`
-final response, or the weekly usage budget. Task selection, scope, verification,
-recovery, Git, commit, and working-directory policies belong to each project's
-own instructions; donext does not inject them. A blocked response is reserved
+on a non-retryable failure, interruption, an interactive request, a standalone
+`DONEXT_BLOCKED` final response, or the weekly usage budget. A
+`serverOverloaded` turn failure, including the compatible
+`Selected model is at capacity` message, is retried in the same persisted thread
+after 10 seconds. Each retry prints a timestamped `=` system line and can be
+interrupted normally; repeated capacity failures continue retrying without
+starting another roadmap goal. Task selection, scope, verification, recovery,
+Git, commit, and working-directory policies belong to each project's own
+instructions; donext does not inject them. A blocked response is reserved
 for work that needs external intervention after local options are exhausted.
 It records `blocked`, returns a nonzero exit code, and never starts another
 goal. Failures and

@@ -9,6 +9,9 @@ after its first release.
 
 ### Changed
 
+- Retry `serverOverloaded` and compatible model-capacity turn failures in the
+  same persisted session after 10 seconds, with a timestamped system log,
+  instead of stopping the managed loop.
 - Continue managed loops across weekly account rate-limit rollovers by resetting
   the per-run usage baseline to the new window; other anomalous window changes
   still fail closed.

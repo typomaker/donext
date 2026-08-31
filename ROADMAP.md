@@ -50,6 +50,18 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-048 — Retry transient model-capacity failures
+
+- Completed: 2026-08-31.
+- Result: the App Server adapter now exposes structured turn error details, and
+  `serverOverloaded` or the compatible selected-model-capacity message schedules
+  a signal-aware 10-second retry as a new turn in the same persisted thread.
+  Each retry emits timestamped `=` terminal output and metadata-only lifecycle
+  logging; other failed turns remain terminal. Updated README, protocol notes,
+  changelog, and deterministic adapter/CLI coverage. Checks: installed v0.151.0
+  schema inspection; focused Codex/CLI tests; full tests; full race tests; vet;
+  build; installed binary help smoke; installed build metadata; and diff check.
+
 ### ORCH-047 — Move local installation policy to AGENTS.md
 
 - Completed: 2026-08-31.

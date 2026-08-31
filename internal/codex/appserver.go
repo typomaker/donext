@@ -416,12 +416,21 @@ func (a *AppServer) route(msg wireMessage) {
 		Turn     struct {
 			ID     string `json:"id"`
 			Status string `json:"status"`
+			Error  *struct {
+				Message        string          `json:"message"`
+				CodexErrorInfo json.RawMessage `json:"codexErrorInfo"`
+			} `json:"error"`
 		} `json:"turn"`
 	}
 	if json.Unmarshal(msg.Params, &p) != nil {
 		return
 	}
-	a.emit(Event{Kind: TurnCompleted, Method: msg.Method, ThreadID: p.ThreadID, TurnID: p.Turn.ID, Status: p.Turn.Status})
+	event := Event{Kind: TurnCompleted, Method: msg.Method, ThreadID: p.ThreadID, TurnID: p.Turn.ID, Status: p.Turn.Status}
+	if p.Turn.Error != nil {
+		event.ErrorMessage = p.Turn.Error.Message
+		_ = json.Unmarshal(p.Turn.Error.CodexErrorInfo, &event.ErrorCode)
+	}
+	a.emit(event)
 }
 
 func (a *AppServer) emit(e Event) {

@@ -68,7 +68,9 @@ timeout is only an operational safeguard, never evidence of success.
 - `turn/start`: requires `threadId` and `input`. Text input is represented as
   `{ "type": "text", "text": "..." }`.
 - `turn/completed`: requires `threadId` and `turn`; status and error are nested
-  inside `turn`.
+  inside `turn`. Failed turns expose a human-readable `error.message` and may
+  expose a structured `error.codexErrorInfo`; `serverOverloaded` is treated as
+  retryable by the orchestrator.
 
 App Server may emit notifications unrelated to the orchestrator lifecycle, such
 as MCP startup, rate limits, token usage, and remote-control status. The adapter

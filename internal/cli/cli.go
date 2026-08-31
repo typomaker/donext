@@ -29,6 +29,8 @@ var stateDirectory = func(repository string) (string, error) {
 	return state.ProjectDir(repository), nil
 }
 var shutdownGracePeriod = 3 * time.Second
+var modelCapacityRetryDelay = 10 * time.Second
+var modelCapacityRetryAfter = time.After
 var currentTime = time.Now
 var revealDesktopThread = revealThreadInDesktop
 var promptStdin io.Reader = os.Stdin
@@ -432,21 +434,35 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 	if project.Verbose {
 		printMarkedMessage(stderr, '<', project.Prompt)
 	}
-	turnID, err := client.StartTurn(ctx, threadID, project.Prompt)
-	if err != nil {
-		_ = store.Write(state.State{Project: projectID, Status: "failed", ThreadID: threadID})
-		logLifecycle(store, stderr, projectID, "turn", "start_failed", map[string]string{"thread": threadID})
-		printTerminal(stdout, projectName, threadID, "failed", project.Verbose)
-		fmt.Fprintf(stderr, "start turn: %v\n", err)
-		return "failed", false
+	startTurn := func(prompt string, retry bool) (string, bool) {
+		if retry && project.Verbose {
+			printMarkedMessage(stderr, '<', prompt)
+		}
+		turnID, err := client.StartTurn(ctx, threadID, prompt)
+		if err != nil {
+			_ = store.Write(state.State{Project: projectID, Status: "failed", ThreadID: threadID})
+			logLifecycle(store, stderr, projectID, "turn", "start_failed", map[string]string{"thread": threadID})
+			printTerminal(stdout, projectName, threadID, "failed", project.Verbose)
+			fmt.Fprintf(stderr, "start turn: %v\n", err)
+			return "", false
+		}
+		if project.Verbose {
+			printMarkedLine(stderr, '#', "model turn started: turn="+turnID)
+		}
+		fields := map[string]string{"thread": threadID, "turn": turnID}
+		if retry {
+			fields["retry"] = "model_capacity"
+		}
+		logLifecycle(store, stderr, projectID, "turn", "started", fields)
+		if err := store.Write(state.State{Project: projectID, Status: "running", ThreadID: threadID, TurnID: turnID}); err != nil {
+			printTerminal(stdout, projectName, threadID, "failed", project.Verbose)
+			fmt.Fprintf(stderr, "write running state: %v\n", err)
+			return "", false
+		}
+		return turnID, true
 	}
-	if project.Verbose {
-		printMarkedLine(stderr, '#', "model turn started: turn="+turnID)
-	}
-	logLifecycle(store, stderr, projectID, "turn", "started", map[string]string{"thread": threadID, "turn": turnID})
-	if err := store.Write(state.State{Project: projectID, Status: "running", ThreadID: threadID, TurnID: turnID}); err != nil {
-		printTerminal(stdout, projectName, threadID, "failed", project.Verbose)
-		fmt.Fprintf(stderr, "write running state: %v\n", err)
+	turnID, ok := startTurn(project.Prompt, false)
+	if !ok {
 		return "failed", false
 	}
 
@@ -554,6 +570,29 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 			if desiredStatus != "" {
 				status = desiredStatus
 			}
+			if status == "failed" && desiredStatus == "" && isModelCapacityError(event) {
+				delay := modelCapacityRetryDelay
+				logLifecycle(store, stderr, projectID, "turn", "retry_scheduled", map[string]string{"thread": threadID, "turn": turnID, "reason": "model_capacity", "delay": delay.String()})
+				printMarkedLine(stderr, '=', fmt.Sprintf("model capacity unavailable; retrying current session in %s", delay))
+				if err := store.Write(state.State{Project: projectID, Status: "retrying", ThreadID: threadID, TurnID: turnID}); err != nil {
+					fmt.Fprintf(stderr, "write retrying state: %v\n", err)
+					return "failed", false
+				}
+				select {
+				case <-modelCapacityRetryAfter(delay):
+				case <-signals:
+					return finishStopped(store, projectID, projectName, threadID, turnID, "interrupted", "shutdown signal received while waiting to retry", project.Verbose, stdout, stderr)
+				case <-ctx.Done():
+					return finishStopped(store, projectID, projectName, threadID, turnID, "interrupted", ctx.Err().Error(), project.Verbose, stdout, stderr)
+				}
+				finalOutput = ""
+				tokenUsage = nil
+				turnID, ok = startTurn("Continue the current task after the transient model-capacity failure.", true)
+				if !ok {
+					return "failed", false
+				}
+				continue
+			}
 			if status == "completed" {
 				if containsMarkerLine(finalOutput, "DONEXT_BLOCKED") {
 					status = "blocked"
@@ -579,6 +618,10 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 			return status, false
 		}
 	}
+}
+
+func isModelCapacityError(event codex.Event) bool {
+	return event.ErrorCode == "serverOverloaded" || event.ErrorMessage == "Selected model is at capacity. Please try a different model."
 }
 
 func printMarkedMessage(w io.Writer, marker byte, message string) {
