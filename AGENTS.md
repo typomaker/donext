@@ -27,6 +27,9 @@ A task is complete only when implementation, tests, relevant checks, required
 documentation, and repository consistency are all complete, and the item has
 been moved from "Current steps" to "Step history" in `ROADMAP.md`.
 
+After every successful task, install the current checkout with
+`go install ./cmd/donext` and smoke-check the resolved local `donext` binary.
+
 If work is blocked or checks fail, leave the step under "Current steps" and add
 a concise nested `Status` entry describing the state and blocker.
 
