@@ -12,8 +12,9 @@ one succeeds.
 1. "Current steps" is the source of the next task.
 2. By default, select the first unfinished step from top to bottom.
 3. Complete exactly one step in each Codex thread.
-4. A step is complete only after implementation, testing, and required
-   documentation updates.
+4. A step is complete only after implementation, testing, required
+   documentation updates, installing the current checkout with
+   `go install ./cmd/donext`, and smoke-checking the installed binary.
 5. Remove a completed step from "Current steps" and append it to "Step history."
 6. History entries preserve the original ID, title, completion date, concise
    result, and checks performed.
@@ -49,6 +50,15 @@ These are outside the MVP until explicitly moved into "Current steps":
 - packaging and release automation.
 
 ## Step history
+
+### ORCH-046 — Require local binary installation after changes
+
+- Completed: 2026-08-31.
+- Result: roadmap completion now requires installing the current checkout and
+  smoke-checking the resolved local `donext` binary. Applied the rule
+  immediately by installing the binary containing the weekly-window rollover
+  fix from ORCH-045. Checks: `go install ./cmd/donext`; installed binary help
+  smoke; build metadata inspection; and diff check.
 
 ### ORCH-045 — Continue across weekly usage-window rollovers
 
