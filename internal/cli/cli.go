@@ -34,6 +34,11 @@ var modelCapacityRetryAfter = time.After
 
 const defaultInterGoalDelay = 3 * time.Second
 
+const (
+	defaultModel     = "gpt-5.6-sol"
+	defaultReasoning = "light"
+)
+
 var interGoalDelayAfter = time.After
 var currentTime = time.Now
 var revealDesktopThread = revealThreadInDesktop
@@ -61,6 +66,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	root.BoolVar(&verbose, "verbose", false, "show session lifecycle, requests, and expanded system status")
 	approvalPolicy := root.String("approval-policy", "never", "Codex approval policy: never, on-request, or untrusted")
 	sandbox := root.String("sandbox", "workspace-write", "Codex sandbox: read-only, workspace-write, or danger-full-access")
+	model := root.String("model", defaultModel, "Codex model")
+	reasoning := root.String("reasoning", defaultReasoning, "Codex reasoning level")
 	weeklyUsageBudget := root.Int("weekly-usage-budget", 0, "weekly quota percentage points available to this run")
 	interGoalDelay := root.Duration("inter-goal-delay", defaultInterGoalDelay, "delay between continuous-run App Servers")
 	promptValue := root.String("prompt", "", "prompt text, @FILE, or - for stdin")
@@ -87,6 +94,18 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "--sandbox must be one of: read-only, workspace-write, danger-full-access")
 		return 2
 	}
+	if !validModel(*model) {
+		fmt.Fprintln(stderr, "--model must be one of: gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5, gpt-5.2")
+		return 2
+	}
+	if !validReasoning(*reasoning) {
+		fmt.Fprintln(stderr, "--reasoning must be one of: light, medium, high, xhigh, max, ultra")
+		return 2
+	}
+	if !validModelReasoning(*model, *reasoning) {
+		fmt.Fprintf(stderr, "--reasoning %s is not available for --model %s\n", *reasoning, *model)
+		return 2
+	}
 	if flagWasSet(root, "weekly-usage-budget") && (*weeklyUsageBudget < 1 || *weeklyUsageBudget > 100) {
 		fmt.Fprintln(stderr, "--weekly-usage-budget requires an integer from 1 to 100")
 		return 2
@@ -100,7 +119,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "--prompt: %v\n", err)
 		return 2
 	}
-	return runCommand(runOptions{once: *once, dryRun: *dryRun, verbose: verbose, approvalPolicy: *approvalPolicy, sandbox: *sandbox, weeklyUsageBudget: *weeklyUsageBudget, interGoalDelay: *interGoalDelay, prompt: prompt}, stdout, stderr)
+	return runCommand(runOptions{once: *once, dryRun: *dryRun, verbose: verbose, approvalPolicy: *approvalPolicy, sandbox: *sandbox, model: *model, reasoning: *reasoning, weeklyUsageBudget: *weeklyUsageBudget, interGoalDelay: *interGoalDelay, prompt: prompt}, stdout, stderr)
 }
 
 func flagWasSet(flags *flag.FlagSet, name string) bool {
@@ -212,6 +231,7 @@ func lockLabel(locked bool) string {
 type runOptions struct {
 	once, dryRun, verbose   bool
 	approvalPolicy, sandbox string
+	model, reasoning        string
 	weeklyUsageBudget       int
 	interGoalDelay          time.Duration
 	prompt                  string
@@ -219,6 +239,7 @@ type runOptions struct {
 
 type projectSpec struct {
 	ID, Name, Repository, Prompt, ApprovalPolicy, Sandbox string
+	Model, Reasoning                                      string
 	Verbose                                               bool
 }
 
@@ -248,9 +269,9 @@ func runCommand(options runOptions, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "identify project: %v\n", err)
 		return 1
 	}
-	project := projectSpec{ID: identity.ID, Name: identity.Name, Repository: identity.Repository, Prompt: options.prompt, ApprovalPolicy: options.approvalPolicy, Sandbox: options.sandbox, Verbose: options.verbose}
+	project := projectSpec{ID: identity.ID, Name: identity.Name, Repository: identity.Repository, Prompt: options.prompt, ApprovalPolicy: options.approvalPolicy, Sandbox: options.sandbox, Model: options.model, Reasoning: options.reasoning, Verbose: options.verbose}
 	if options.dryRun {
-		fmt.Fprintf(stdout, "project: %s\nrepository: %s\ncommand: codex app-server --stdio\napproval_policy: %s\nsandbox: %s\nonce: %t\ninter_goal_delay: %s\nprompt:\n%s", project.Name, project.Repository, project.ApprovalPolicy, project.Sandbox, options.once, options.interGoalDelay, project.Prompt)
+		fmt.Fprintf(stdout, "project: %s\nrepository: %s\ncommand: codex app-server --stdio\napproval_policy: %s\nsandbox: %s\nmodel: %s\nreasoning: %s\nonce: %t\ninter_goal_delay: %s\nprompt:\n%s", project.Name, project.Repository, project.ApprovalPolicy, project.Sandbox, project.Model, project.Reasoning, options.once, options.interGoalDelay, project.Prompt)
 		return 0
 	}
 	signals, stopSignals := subscribeSignals()
@@ -431,7 +452,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 	if project.Verbose {
 		printMarkedLine(stderr, '#', "starting new Codex session")
 	}
-	threadID, err := client.StartThread(ctx, codex.ThreadOptions{CWD: project.Repository, ApprovalPolicy: project.ApprovalPolicy, Sandbox: project.Sandbox})
+	threadID, err := client.StartThread(ctx, codex.ThreadOptions{CWD: project.Repository, ApprovalPolicy: project.ApprovalPolicy, Sandbox: project.Sandbox, Model: project.Model})
 	if err != nil {
 		_ = store.Write(state.State{Project: projectID, Status: "failed"})
 		logLifecycle(store, stderr, projectID, "thread", "start_failed", nil)
@@ -467,7 +488,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 		if retry && project.Verbose {
 			printMarkedMessage(stderr, '<', prompt)
 		}
-		turnID, err := client.StartTurn(ctx, threadID, prompt)
+		turnID, err := client.StartTurn(ctx, threadID, prompt, codex.TurnOptions{Model: project.Model, Effort: reasoningEffort(project.Reasoning)})
 		if err != nil {
 			_ = store.Write(state.State{Project: projectID, Status: "failed", ThreadID: threadID})
 			logLifecycle(store, stderr, projectID, "turn", "start_failed", map[string]string{"thread": threadID})
@@ -812,7 +833,7 @@ func warnGitState(repository string, stderr io.Writer) {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "usage: donext [--once|--dry-run] [-v|--verbose] [--prompt TEXT|@FILE|-] [--approval-policy POLICY] [--sandbox MODE] [--weekly-usage-budget N] [--inter-goal-delay DURATION]")
+	fmt.Fprintln(w, "usage: donext [--once|--dry-run] [-v|--verbose] [--prompt TEXT|@FILE|-] [--model MODEL] [--reasoning LEVEL] [--approval-policy POLICY] [--sandbox MODE] [--weekly-usage-budget N] [--inter-goal-delay DURATION]")
 	fmt.Fprintln(w, "       donext status")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "options:")
@@ -822,6 +843,11 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "      never (default), on-request, untrusted")
 	fmt.Fprintln(w, "  --sandbox MODE")
 	fmt.Fprintln(w, "      workspace-write (default), read-only, danger-full-access")
+	fmt.Fprintln(w, "  --model MODEL")
+	fmt.Fprintln(w, "      gpt-5.6-sol (default), gpt-5.6-terra, gpt-5.6-luna, gpt-5.5, gpt-5.2")
+	fmt.Fprintln(w, "  --reasoning LEVEL")
+	fmt.Fprintln(w, "      light (default), medium, high, xhigh, max, ultra")
+	fmt.Fprintln(w, "      max: GPT-5.6 models; ultra: gpt-5.6-sol and gpt-5.6-terra")
 	fmt.Fprintln(w, "  --inter-goal-delay DURATION")
 	fmt.Fprintln(w, "      delay between continuous-run App Servers (default 3s)")
 }
@@ -831,4 +857,29 @@ func validApprovalPolicy(value string) bool {
 }
 func validSandbox(value string) bool {
 	return value == "read-only" || value == "workspace-write" || value == "danger-full-access"
+}
+
+func validModel(value string) bool {
+	return value == "gpt-5.6-sol" || value == "gpt-5.6-terra" || value == "gpt-5.6-luna" || value == "gpt-5.5" || value == "gpt-5.2"
+}
+
+func validReasoning(value string) bool {
+	return value == "light" || value == "medium" || value == "high" || value == "xhigh" || value == "max" || value == "ultra"
+}
+
+func validModelReasoning(model, reasoning string) bool {
+	if reasoning == "ultra" {
+		return model == "gpt-5.6-sol" || model == "gpt-5.6-terra"
+	}
+	if reasoning == "max" {
+		return strings.HasPrefix(model, "gpt-5.6-")
+	}
+	return true
+}
+
+func reasoningEffort(reasoning string) string {
+	if reasoning == "light" {
+		return "low"
+	}
+	return reasoning
 }

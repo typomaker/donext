@@ -61,12 +61,13 @@ timeout is only an operational safeguard, never evidence of success.
 ## Important requests and fields
 
 - `thread/start`: fields are formally optional, but the orchestrator explicitly
-  sends absolute `cwd`, `ephemeral: false`, and the selected policies.
+  sends absolute `cwd`, `ephemeral: false`, the selected policies, and model.
 - `thread/name/set`: requires `threadId` and `name`.
 - `thread/list`: optional, paginated parameters and result (`data`, `nextCursor`).
   An exact `cwd` filter makes persistence checks deterministic.
 - `turn/start`: requires `threadId` and `input`. Text input is represented as
-  `{ "type": "text", "text": "..." }`.
+  `{ "type": "text", "text": "..." }`. The installed v0.151.0 schema exposes
+  `model` and `effort` overrides for the turn and subsequent turns.
 - `turn/completed`: requires `threadId` and `turn`; status and error are nested
   inside `turn`. Failed turns expose a human-readable `error.message` and may
   expose a structured `error.codexErrorInfo`; `serverOverloaded` is treated as

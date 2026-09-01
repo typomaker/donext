@@ -12,7 +12,7 @@ type Client interface {
 	ReadRateLimits(context.Context) (RateLimits, error)
 	StartThread(context.Context, ThreadOptions) (string, error)
 	NameThread(context.Context, string, string) error
-	StartTurn(context.Context, string, string) (string, error)
+	StartTurn(context.Context, string, string, TurnOptions) (string, error)
 	InterruptTurn(context.Context, string, string) error
 	RejectRequest(context.Context, int64, string) error
 	Events() <-chan Event
@@ -35,6 +35,12 @@ type ThreadOptions struct {
 	CWD            string
 	ApprovalPolicy string
 	Sandbox        string
+	Model          string
+}
+
+type TurnOptions struct {
+	Model  string
+	Effort string
 }
 
 type EventKind string

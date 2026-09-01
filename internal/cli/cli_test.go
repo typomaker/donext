@@ -28,6 +28,7 @@ type fakeCodex struct {
 	forced           int
 	interruptNoEvent bool
 	threadOpts       codex.ThreadOptions
+	turnOpts         codex.TurnOptions
 	name             string
 	names            []string
 	renameErr        error
@@ -77,9 +78,10 @@ func (f *fakeCodex) NameThread(_ context.Context, _ string, name string) error {
 	f.name = name
 	return nil
 }
-func (f *fakeCodex) StartTurn(_ context.Context, _, prompt string) (string, error) {
+func (f *fakeCodex) StartTurn(_ context.Context, _, prompt string, opts codex.TurnOptions) (string, error) {
 	f.turnStarts++
 	f.prompt = prompt
+	f.turnOpts = opts
 	if len(f.outcomes) > 0 {
 		turnID := fmt.Sprintf("turn-%d", f.turnStarts)
 		status := f.outcomes[f.turnStarts-1]
@@ -246,6 +248,8 @@ func TestHelpReturnsSuccess(t *testing.T) {
 		"usage: donext",
 		"--approval-policy POLICY\n      never (default), on-request, untrusted",
 		"--sandbox MODE\n      workspace-write (default), read-only, danger-full-access",
+		"--model MODEL\n      gpt-5.6-sol (default), gpt-5.6-terra, gpt-5.6-luna, gpt-5.5, gpt-5.2",
+		"--reasoning LEVEL\n      light (default), medium, high, xhigh, max, ultra",
 	} {
 		if !strings.Contains(help, want) {
 			t.Fatalf("help missing %q: %q", want, help)
@@ -342,7 +346,7 @@ func TestLifecycleLogContainsMetadataButNotPrompt(t *testing.T) {
 func TestDryRunAfterProject(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run(runArgs(t, "--dry-run"), &stdout, &stderr)
-	if code != 0 || !strings.Contains(stdout.String(), "project: alpha") || !strings.Contains(stdout.String(), "command: codex app-server --stdio") || !strings.Contains(stdout.String(), "approval_policy: never\nsandbox: workspace-write\nonce: false\ninter_goal_delay: 3s") {
+	if code != 0 || !strings.Contains(stdout.String(), "project: alpha") || !strings.Contains(stdout.String(), "command: codex app-server --stdio") || !strings.Contains(stdout.String(), "approval_policy: never\nsandbox: workspace-write\nmodel: gpt-5.6-sol\nreasoning: light\nonce: false\ninter_goal_delay: 3s") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 }
@@ -351,6 +355,14 @@ func TestDryRunShowsExplicitSafetyOptions(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run(runArgs(t, "--dry-run", "--approval-policy", "on-request", "--sandbox", "read-only"), &stdout, &stderr)
 	if code != 0 || !strings.Contains(stdout.String(), "approval_policy: on-request\nsandbox: read-only") {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+}
+
+func TestDryRunShowsExplicitModelAndReasoning(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run(runArgs(t, "--dry-run", "--model", "gpt-5.6-terra", "--reasoning", "ultra"), &stdout, &stderr)
+	if code != 0 || !strings.Contains(stdout.String(), "model: gpt-5.6-terra\nreasoning: ultra") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 }
@@ -499,6 +511,15 @@ func TestRejectsInvalidSafetyOptions(t *testing.T) {
 	}
 }
 
+func TestRejectsInvalidModelAndReasoning(t *testing.T) {
+	for _, args := range [][]string{{"--model", "unknown"}, {"--reasoning", "none"}, {"--model", "gpt-5.5", "--reasoning", "max"}, {"--model", "gpt-5.6-luna", "--reasoning", "ultra"}} {
+		var stdout, stderr bytes.Buffer
+		if code := Run(args, &stdout, &stderr); code != 2 {
+			t.Fatalf("args=%v code=%d stderr=%q", args, code, stderr.String())
+		}
+	}
+}
+
 func TestRejectsRemovedRunCommandAndConfig(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"--config", "old.yaml"}, &stdout, &stderr)
@@ -518,6 +539,9 @@ func TestRunOnceCompleted(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := Run(append(runArgsFor(t, repository), "--once"), &stdout, &stderr)
+	if fake.threadOpts.Model != defaultModel || fake.turnOpts.Model != defaultModel || fake.turnOpts.Effort != "low" {
+		t.Fatalf("thread options=%+v turn options=%+v", fake.threadOpts, fake.turnOpts)
+	}
 	if code != 0 || stdout.String() != "" {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}

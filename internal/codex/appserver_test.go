@@ -93,7 +93,7 @@ func TestFullLifecycleAndRouting(t *testing.T) {
 	c := connect(t, f, tr)
 	done := make(chan error, 1)
 	go func() {
-		thread, err := c.StartThread(context.Background(), ThreadOptions{CWD: "/repo", ApprovalPolicy: "never", Sandbox: "read-only"})
+		thread, err := c.StartThread(context.Background(), ThreadOptions{CWD: "/repo", ApprovalPolicy: "never", Sandbox: "read-only", Model: "gpt-5.6-sol"})
 		if err != nil {
 			done <- err
 			return
@@ -106,7 +106,7 @@ func TestFullLifecycleAndRouting(t *testing.T) {
 			done <- err
 			return
 		}
-		turn, err := c.StartTurn(context.Background(), thread, "next goal")
+		turn, err := c.StartTurn(context.Background(), thread, "next goal", TurnOptions{Model: "gpt-5.6-sol", Effort: "low"})
 		if err != nil {
 			done <- err
 			return
@@ -115,7 +115,7 @@ func TestFullLifecycleAndRouting(t *testing.T) {
 	}()
 	m := f.request("thread/start")
 	p := m["params"].(map[string]any)
-	if p["cwd"] != "/repo" || p["ephemeral"] != false || p["approvalPolicy"] != "never" {
+	if p["cwd"] != "/repo" || p["ephemeral"] != false || p["approvalPolicy"] != "never" || p["model"] != "gpt-5.6-sol" {
 		t.Fatalf("params=%v", p)
 	}
 	if _, ok := p["projectId"]; ok {
@@ -125,6 +125,10 @@ func TestFullLifecycleAndRouting(t *testing.T) {
 	m = f.request("thread/name/set")
 	f.respond(m, map[string]any{})
 	m = f.request("turn/start")
+	p = m["params"].(map[string]any)
+	if p["model"] != "gpt-5.6-sol" || p["effort"] != "low" {
+		t.Fatalf("turn params=%v", p)
+	}
 	f.respond(m, map[string]any{"turn": map[string]any{"id": "tu-1"}})
 	m = f.request("turn/interrupt")
 	p = m["params"].(map[string]any)

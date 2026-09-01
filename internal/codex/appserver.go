@@ -178,6 +178,9 @@ func (a *AppServer) StartThread(ctx context.Context, o ThreadOptions) (string, e
 	if o.Sandbox != "" {
 		params["sandbox"] = o.Sandbox
 	}
+	if o.Model != "" {
+		params["model"] = o.Model
+	}
 	var out struct {
 		Thread struct {
 			ID string `json:"id"`
@@ -196,8 +199,14 @@ func (a *AppServer) NameThread(ctx context.Context, threadID, name string) error
 	return a.call(ctx, "thread/name/set", map[string]string{"threadId": threadID, "name": name}, nil)
 }
 
-func (a *AppServer) StartTurn(ctx context.Context, threadID, prompt string) (string, error) {
+func (a *AppServer) StartTurn(ctx context.Context, threadID, prompt string, o TurnOptions) (string, error) {
 	params := map[string]any{"threadId": threadID, "input": []map[string]string{{"type": "text", "text": prompt}}}
+	if o.Model != "" {
+		params["model"] = o.Model
+	}
+	if o.Effort != "" {
+		params["effort"] = o.Effort
+	}
 	var out struct {
 		Turn struct {
 			ID string `json:"id"`

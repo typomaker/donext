@@ -28,7 +28,8 @@ one succeeds.
 ## MVP scope
 
 The MVP includes `donext` from the current directory; `--once`, `--dry-run`,
-`--prompt TEXT|@FILE|-`, `-v`/`--verbose`, and `--weekly-usage-budget N`;
+`--prompt TEXT|@FILE|-`, `--model MODEL`, `--reasoning LEVEL`,
+`-v`/`--verbose`, and `--weekly-usage-budget N`;
 `donext status`; one App
 Server per goal; one persisted thread per goal; real terminal-event waiting;
 stopping on no-work, failure, or interruption; independent project locks;
@@ -49,6 +50,16 @@ These are outside the MVP until explicitly moved into "Current steps":
 - packaging and release automation.
 
 ## Step history
+
+### ORCH-050 — Make model and reasoning configurable
+
+- Completed: 2026-09-01.
+- Result: managed sessions now default to GPT-5.6 Sol with Light reasoning.
+  Added validated `--model` and `--reasoning` flags, complete help listings and
+  compatibility checks, explicit App Server thread/turn overrides, dry-run
+  visibility, documentation, and deterministic adapter/CLI coverage. Checks:
+  installed v0.151.0 schema inspection; focused tests; full tests; full race
+  tests; vet; build; help output; explicit dry-run; and diff check.
 
 ### ORCH-049 — Pause between continuous-run App Servers
 

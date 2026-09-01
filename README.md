@@ -80,13 +80,14 @@ through its normal rules.
 
 ```text
 donext [--once|--dry-run] [-v|--verbose] [--prompt TEXT|@FILE|-]
+       [--model MODEL] [--reasoning LEVEL]
        [--approval-policy POLICY] [--sandbox MODE]
        [--weekly-usage-budget N] [--inter-goal-delay DURATION]
 donext status
 ```
 
-Run `donext --help` to see all accepted approval policies and sandbox modes,
-including their defaults.
+Run `donext --help` to see all accepted models, reasoning levels, approval
+policies, and sandbox modes, including their defaults and compatibility.
 
 Examples:
 
@@ -98,6 +99,7 @@ donext --prompt 'Complete step ORCH-123'
 donext --prompt @prompt.md
 printf 'Complete step ORCH-123\n' | donext --prompt -
 donext --approval-policy never --sandbox workspace-write
+donext --model gpt-5.6-terra --reasoning high
 donext --weekly-usage-budget 5
 donext --inter-goal-delay 5s # override the default three-second GUI release window
 donext -v                      # show labeled model requests and responses
@@ -173,6 +175,15 @@ Every `thread/start` explicitly receives safe defaults:
 
 - `--approval-policy never` (also: `on-request`, `untrusted`);
 - `--sandbox workspace-write` (also: `read-only`, `danger-full-access`).
+
+Every managed session also explicitly uses `--model gpt-5.6-sol` and
+`--reasoning light` by default. `light` is sent to App Server as its protocol
+value `low`. Available model values are `gpt-5.6-sol`, `gpt-5.6-terra`,
+`gpt-5.6-luna`, `gpt-5.5`, and `gpt-5.2`. Available reasoning values are
+`light`, `medium`, `high`, `xhigh`, `max`, and `ultra`; `max` requires a GPT-5.6
+model, and `ultra` requires GPT-5.6 Sol or Terra. The selected model is fixed on
+the new persisted thread and repeated together with the reasoning level on
+every turn, including model-capacity retries.
 
 Each goal uses a fresh `codex app-server --stdio` process started from `PATH`.
 Approval and user-input requests are rejected, the active turn is interrupted,
