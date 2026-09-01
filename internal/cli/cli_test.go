@@ -18,6 +18,16 @@ import (
 	"github.com/typomaker/donext/internal/state"
 )
 
+var testModelCatalog = []codex.Model{
+	{Name: "gpt-5.6-sol", DisplayName: "GPT-5.6 Sol", DefaultReasoning: "medium", Reasoning: []string{"low", "medium", "high", "xhigh", "max", "ultra"}},
+	{Name: "gpt-5.6-terra", DisplayName: "GPT-5.6 Terra", DefaultReasoning: "medium", Reasoning: []string{"low", "medium", "high", "xhigh", "max", "ultra"}},
+	{Name: "gpt-5.5", DisplayName: "GPT-5.5", DefaultReasoning: "medium", Reasoning: []string{"low", "medium", "high", "xhigh"}},
+}
+
+func init() {
+	loadModelCatalog = func(context.Context, string) ([]codex.Model, error) { return testModelCatalog, nil }
+}
+
 type fakeCodex struct {
 	events           chan codex.Event
 	threadStarts     int
@@ -39,6 +49,14 @@ type fakeCodex struct {
 	rateLimits       []codex.RateLimits
 	rateLimitErr     error
 	rateLimitReads   int
+	modelErr         error
+}
+
+func (f *fakeCodex) ListModels(context.Context) ([]codex.Model, error) {
+	if f.modelErr != nil {
+		return nil, f.modelErr
+	}
+	return testModelCatalog, nil
 }
 
 func (f *fakeCodex) ReadRateLimits(context.Context) (codex.RateLimits, error) {
@@ -248,8 +266,9 @@ func TestHelpReturnsSuccess(t *testing.T) {
 		"usage: donext",
 		"--approval-policy POLICY\n      never (default), on-request, untrusted",
 		"--sandbox MODE\n      workspace-write (default), read-only, danger-full-access",
-		"--model MODEL\n      gpt-5.6-sol (default), gpt-5.6-terra, gpt-5.6-luna, gpt-5.5, gpt-5.2",
-		"--reasoning LEVEL\n      light (default), medium, high, xhigh, max, ultra",
+		"--model MODEL\n      gpt-5.6-sol (default): light, medium, high, xhigh, max, ultra",
+		"gpt-5.5: light, medium, high, xhigh",
+		"--reasoning LEVEL\n      levels are listed per model above",
 	} {
 		if !strings.Contains(help, want) {
 			t.Fatalf("help missing %q: %q", want, help)
@@ -512,11 +531,33 @@ func TestRejectsInvalidSafetyOptions(t *testing.T) {
 }
 
 func TestRejectsInvalidModelAndReasoning(t *testing.T) {
-	for _, args := range [][]string{{"--model", "unknown"}, {"--reasoning", "none"}, {"--model", "gpt-5.5", "--reasoning", "max"}, {"--model", "gpt-5.6-luna", "--reasoning", "ultra"}} {
+	for _, args := range [][]string{{"--dry-run", "--model", "unknown"}, {"--dry-run", "--reasoning", "none"}, {"--dry-run", "--model", "gpt-5.5", "--reasoning", "max"}} {
 		var stdout, stderr bytes.Buffer
 		if code := Run(args, &stdout, &stderr); code != 2 {
 			t.Fatalf("args=%v code=%d stderr=%q", args, code, stderr.String())
 		}
+	}
+}
+
+func TestModelCatalogFailureStopsHelpAndRun(t *testing.T) {
+	old := loadModelCatalog
+	loadModelCatalog = func(context.Context, string) ([]codex.Model, error) { return nil, errors.New("catalog unavailable") }
+	t.Cleanup(func() { loadModelCatalog = old })
+	for _, args := range [][]string{{"--help"}, {"--dry-run"}} {
+		var stdout, stderr bytes.Buffer
+		if code := Run(args, &stdout, &stderr); code != 1 || !strings.Contains(stderr.String(), "load Codex model catalog: catalog unavailable") {
+			t.Fatalf("args=%v code=%d stdout=%q stderr=%q", args, code, stdout.String(), stderr.String())
+		}
+	}
+}
+
+func TestManagedRunStopsBeforeThreadWhenModelCatalogFails(t *testing.T) {
+	fake := &fakeCodex{events: make(chan codex.Event), modelErr: errors.New("catalog unavailable")}
+	withFakeCodex(t, fake)
+	var stdout, stderr bytes.Buffer
+	code := Run(runArgs(t, "--once"), &stdout, &stderr)
+	if code != 1 || fake.threadStarts != 0 || fake.closed != 1 || !strings.Contains(stderr.String(), "load Codex model catalog: catalog unavailable") {
+		t.Fatalf("code=%d threadStarts=%d closed=%d stdout=%q stderr=%q", code, fake.threadStarts, fake.closed, stdout.String(), stderr.String())
 	}
 }
 

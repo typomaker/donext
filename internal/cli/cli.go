@@ -25,6 +25,15 @@ var startCodex codexStarter = func(ctx context.Context, command string, stderr i
 	return codex.StartAppServer(ctx, command, stderr)
 }
 
+var loadModelCatalog = func(ctx context.Context, command string) ([]codex.Model, error) {
+	client, err := startCodex(ctx, command, io.Discard)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+	return client.ListModels(ctx)
+}
+
 var stateDirectory = func(repository string) (string, error) {
 	return state.ProjectDir(repository), nil
 }
@@ -71,9 +80,21 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	weeklyUsageBudget := root.Int("weekly-usage-budget", 0, "weekly quota percentage points available to this run")
 	interGoalDelay := root.Duration("inter-goal-delay", defaultInterGoalDelay, "delay between continuous-run App Servers")
 	promptValue := root.String("prompt", "", "prompt text, @FILE, or - for stdin")
-	root.Usage = func() { usage(stderr) }
+	var helpErr error
+	root.Usage = func() {
+		catalog, err := loadModelCatalog(context.Background(), "codex")
+		if err != nil {
+			helpErr = err
+			fmt.Fprintf(stderr, "load Codex model catalog: %v\n", err)
+			return
+		}
+		usage(stderr, catalog)
+	}
 	if err := root.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			if helpErr != nil {
+				return 1
+			}
 			return 0
 		}
 		return 2
@@ -94,18 +115,6 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "--sandbox must be one of: read-only, workspace-write, danger-full-access")
 		return 2
 	}
-	if !validModel(*model) {
-		fmt.Fprintln(stderr, "--model must be one of: gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5, gpt-5.2")
-		return 2
-	}
-	if !validReasoning(*reasoning) {
-		fmt.Fprintln(stderr, "--reasoning must be one of: light, medium, high, xhigh, max, ultra")
-		return 2
-	}
-	if !validModelReasoning(*model, *reasoning) {
-		fmt.Fprintf(stderr, "--reasoning %s is not available for --model %s\n", *reasoning, *model)
-		return 2
-	}
 	if flagWasSet(root, "weekly-usage-budget") && (*weeklyUsageBudget < 1 || *weeklyUsageBudget > 100) {
 		fmt.Fprintln(stderr, "--weekly-usage-budget requires an integer from 1 to 100")
 		return 2
@@ -113,6 +122,17 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	if *interGoalDelay < 0 {
 		fmt.Fprintln(stderr, "--inter-goal-delay must not be negative")
 		return 2
+	}
+	if *dryRun {
+		catalog, err := loadModelCatalog(context.Background(), "codex")
+		if err != nil {
+			fmt.Fprintf(stderr, "load Codex model catalog: %v\n", err)
+			return 1
+		}
+		if err := validateModelSelection(catalog, *model, *reasoning); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 2
+		}
 	}
 	prompt, err := resolvePrompt(*promptValue, flagWasSet(root, "prompt"))
 	if err != nil {
@@ -322,6 +342,17 @@ func runGoals(ctx context.Context, command string, project projectSpec, once boo
 			printTerminal(stdout, projectName, "-", "failed", project.Verbose)
 			fmt.Fprintf(stderr, "start app-server: %v\n", err)
 			return 1
+		}
+		catalog, err := client.ListModels(ctx)
+		if err != nil {
+			_ = client.Close()
+			fmt.Fprintf(stderr, "load Codex model catalog: %v\n", err)
+			return 1
+		}
+		if err := validateModelSelection(catalog, project.Model, project.Reasoning); err != nil {
+			_ = client.Close()
+			fmt.Fprintln(stderr, err)
+			return 2
 		}
 		logLifecycle(store, stderr, projectID, "app-server", "started", nil)
 		closeClient := func() {
@@ -832,7 +863,7 @@ func warnGitState(repository string, stderr io.Writer) {
 	}
 }
 
-func usage(w io.Writer) {
+func usage(w io.Writer, catalog []codex.Model) {
 	fmt.Fprintln(w, "usage: donext [--once|--dry-run] [-v|--verbose] [--prompt TEXT|@FILE|-] [--model MODEL] [--reasoning LEVEL] [--approval-policy POLICY] [--sandbox MODE] [--weekly-usage-budget N] [--inter-goal-delay DURATION]")
 	fmt.Fprintln(w, "       donext status")
 	fmt.Fprintln(w)
@@ -844,10 +875,15 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "  --sandbox MODE")
 	fmt.Fprintln(w, "      workspace-write (default), read-only, danger-full-access")
 	fmt.Fprintln(w, "  --model MODEL")
-	fmt.Fprintln(w, "      gpt-5.6-sol (default), gpt-5.6-terra, gpt-5.6-luna, gpt-5.5, gpt-5.2")
+	for _, model := range catalog {
+		defaultLabel := ""
+		if model.Name == defaultModel {
+			defaultLabel = " (default)"
+		}
+		fmt.Fprintf(w, "      %s%s: %s\n", model.Name, defaultLabel, strings.Join(displayReasoning(model.Reasoning), ", "))
+	}
 	fmt.Fprintln(w, "  --reasoning LEVEL")
-	fmt.Fprintln(w, "      light (default), medium, high, xhigh, max, ultra")
-	fmt.Fprintln(w, "      max: GPT-5.6 models; ultra: gpt-5.6-sol and gpt-5.6-terra")
+	fmt.Fprintln(w, "      levels are listed per model above; light is the low App Server effort")
 	fmt.Fprintln(w, "  --inter-goal-delay DURATION")
 	fmt.Fprintln(w, "      delay between continuous-run App Servers (default 3s)")
 }
@@ -859,22 +895,54 @@ func validSandbox(value string) bool {
 	return value == "read-only" || value == "workspace-write" || value == "danger-full-access"
 }
 
-func validModel(value string) bool {
-	return value == "gpt-5.6-sol" || value == "gpt-5.6-terra" || value == "gpt-5.6-luna" || value == "gpt-5.5" || value == "gpt-5.2"
+func findModel(catalog []codex.Model, name string) (codex.Model, bool) {
+	for _, model := range catalog {
+		if model.Name == name {
+			return model, true
+		}
+	}
+	return codex.Model{}, false
 }
 
-func validReasoning(value string) bool {
-	return value == "light" || value == "medium" || value == "high" || value == "xhigh" || value == "max" || value == "ultra"
+func validateModelSelection(catalog []codex.Model, model, reasoning string) error {
+	selected, ok := findModel(catalog, model)
+	if !ok {
+		return fmt.Errorf("--model must be one of: %s", strings.Join(modelNames(catalog), ", "))
+	}
+	if !modelSupportsReasoning(selected, reasoning) {
+		return fmt.Errorf("--reasoning for --model %s must be one of: %s", model, strings.Join(displayReasoning(selected.Reasoning), ", "))
+	}
+	return nil
 }
 
-func validModelReasoning(model, reasoning string) bool {
-	if reasoning == "ultra" {
-		return model == "gpt-5.6-sol" || model == "gpt-5.6-terra"
+func modelNames(catalog []codex.Model) []string {
+	names := make([]string, 0, len(catalog))
+	for _, model := range catalog {
+		names = append(names, model.Name)
 	}
-	if reasoning == "max" {
-		return strings.HasPrefix(model, "gpt-5.6-")
+	return names
+}
+
+func modelSupportsReasoning(model codex.Model, reasoning string) bool {
+	effort := reasoningEffort(reasoning)
+	for _, supported := range model.Reasoning {
+		if supported == effort {
+			return true
+		}
 	}
-	return true
+	return false
+}
+
+func displayReasoning(reasoning []string) []string {
+	levels := make([]string, len(reasoning))
+	for i, effort := range reasoning {
+		if effort == "low" {
+			levels[i] = "light"
+		} else {
+			levels[i] = effort
+		}
+	}
+	return levels
 }
 
 func reasoningEffort(reasoning string) string {

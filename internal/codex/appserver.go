@@ -106,6 +106,47 @@ type AppServer struct {
 
 var _ Client = (*AppServer)(nil)
 
+func (a *AppServer) ListModels(ctx context.Context) ([]Model, error) {
+	var models []Model
+	seenCursors := make(map[string]bool)
+	cursor := ""
+	for {
+		params := map[string]any{"limit": 100, "includeHidden": false}
+		if cursor != "" {
+			params["cursor"] = cursor
+		}
+		var out struct {
+			Data []struct {
+				Model                  string `json:"model"`
+				DisplayName            string `json:"displayName"`
+				DefaultReasoningEffort string `json:"defaultReasoningEffort"`
+				SupportedReasoning     []struct {
+					ReasoningEffort string `json:"reasoningEffort"`
+				} `json:"supportedReasoningEfforts"`
+			} `json:"data"`
+			NextCursor *string `json:"nextCursor"`
+		}
+		if err := a.call(ctx, "model/list", params, &out); err != nil {
+			return nil, err
+		}
+		for _, item := range out.Data {
+			reasoning := make([]string, 0, len(item.SupportedReasoning))
+			for _, effort := range item.SupportedReasoning {
+				reasoning = append(reasoning, effort.ReasoningEffort)
+			}
+			models = append(models, Model{Name: item.Model, DisplayName: item.DisplayName, DefaultReasoning: item.DefaultReasoningEffort, Reasoning: reasoning})
+		}
+		if out.NextCursor == nil || *out.NextCursor == "" {
+			return models, nil
+		}
+		cursor = *out.NextCursor
+		if seenCursors[cursor] {
+			return nil, fmt.Errorf("model/list repeated cursor %q", cursor)
+		}
+		seenCursors[cursor] = true
+	}
+}
+
 func (a *AppServer) ReadRateLimits(ctx context.Context) (RateLimits, error) {
 	var out struct {
 		RateLimits struct {

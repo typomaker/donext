@@ -9,6 +9,7 @@ import (
 // Client is deliberately expressed in donext domain terms. Implementations
 // may use App Server or a fake without exposing protocol messages to callers.
 type Client interface {
+	ListModels(context.Context) ([]Model, error)
 	ReadRateLimits(context.Context) (RateLimits, error)
 	StartThread(context.Context, ThreadOptions) (string, error)
 	NameThread(context.Context, string, string) error
@@ -18,6 +19,13 @@ type Client interface {
 	Events() <-chan Event
 	ForceClose() error
 	Close() error
+}
+
+type Model struct {
+	Name             string
+	DisplayName      string
+	DefaultReasoning string
+	Reasoning        []string
 }
 
 type RateLimits struct {

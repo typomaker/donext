@@ -10,8 +10,9 @@ after its first release.
 ### Changed
 
 - Default managed sessions to GPT-5.6 Sol with Light reasoning. Add validated
-  `--model` and `--reasoning` overrides, document all supported values and
-  compatibility in `--help`, and send them explicitly to App Server.
+  `--model` and `--reasoning` overrides and send them explicitly to App Server.
+  Populate help and selection validation dynamically from the authenticated,
+  paginated App Server `model/list` catalog instead of hard-coded values.
 - Retry `serverOverloaded` and compatible model-capacity turn failures in the
   same persisted session after 10 seconds, with a timestamped system log,
   instead of stopping the managed loop.

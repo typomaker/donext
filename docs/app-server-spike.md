@@ -60,6 +60,10 @@ timeout is only an operational safeguard, never evidence of success.
 
 ## Important requests and fields
 
+- `model/list`: paginated `data` and `nextCursor` expose each visible model's
+  `model`, `displayName`, `defaultReasoningEffort`, and
+  `supportedReasoningEfforts`. The orchestrator uses this catalog for help and
+  selection validation instead of maintaining protocol-sensitive model lists.
 - `thread/start`: fields are formally optional, but the orchestrator explicitly
   sends absolute `cwd`, `ephemeral: false`, the selected policies, and model.
 - `thread/name/set`: requires `threadId` and `name`.

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -186,6 +187,31 @@ func TestReadRateLimits(t *testing.T) {
 	limits := <-done
 	if limits.Primary == nil || limits.Primary.UsedPercent != 20 || limits.Primary.WindowDurationMins == nil || *limits.Primary.WindowDurationMins != 300 || limits.Secondary == nil || limits.Secondary.UsedPercent != 7 || limits.Secondary.ResetsAt == nil || *limits.Secondary.ResetsAt != 2000 {
 		t.Fatalf("limits=%+v", limits)
+	}
+	_ = f.conn.Close()
+	_ = c.Close()
+}
+
+func TestListModelsPaginates(t *testing.T) {
+	f, tr := newFake(t)
+	c := connect(t, f, tr)
+	done := make(chan []Model, 1)
+	go func() { models, _ := c.ListModels(context.Background()); done <- models }()
+	m := f.request("model/list")
+	p := m["params"].(map[string]any)
+	if p["limit"] != float64(100) || p["includeHidden"] != false {
+		t.Fatalf("params=%v", p)
+	}
+	f.respond(m, map[string]any{"data": []map[string]any{{"model": "gpt-a", "displayName": "GPT A", "defaultReasoningEffort": "medium", "supportedReasoningEfforts": []map[string]any{{"reasoningEffort": "low", "description": "fast"}, {"reasoningEffort": "high", "description": "deep"}}}}, "nextCursor": "page-2"})
+	m = f.request("model/list")
+	p = m["params"].(map[string]any)
+	if p["cursor"] != "page-2" {
+		t.Fatalf("params=%v", p)
+	}
+	f.respond(m, map[string]any{"data": []map[string]any{{"model": "gpt-b", "displayName": "GPT B", "defaultReasoningEffort": "low", "supportedReasoningEfforts": []map[string]any{{"reasoningEffort": "low", "description": "fast"}}}}, "nextCursor": nil})
+	models := <-done
+	if len(models) != 2 || models[0].Name != "gpt-a" || models[0].DisplayName != "GPT A" || models[0].DefaultReasoning != "medium" || !reflect.DeepEqual(models[0].Reasoning, []string{"low", "high"}) || models[1].Name != "gpt-b" {
+		t.Fatalf("models=%+v", models)
 	}
 	_ = f.conn.Close()
 	_ = c.Close()

@@ -51,6 +51,18 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-051 — Discover models and reasoning from App Server
+
+- Completed: 2026-09-01.
+- Result: removed the hard-coded model catalog and reasoning compatibility
+  matrix. Help, dry-run validation, and managed runs now consume the paginated,
+  authenticated App Server `model/list` response; normal runs query their goal's
+  existing server before thread creation. Preserved GPT-5.6 Sol / Light defaults
+  and the `light` to `low` protocol mapping. Updated docs and deterministic
+  pagination, mapping, help, validation, and failure coverage. Checks: installed
+  v0.151.0 schema inspection; focused tests; real model-list help; full tests;
+  full race tests; vet; build; and diff check.
+
 ### ORCH-050 — Make model and reasoning configurable
 
 - Completed: 2026-09-01.

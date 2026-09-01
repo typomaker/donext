@@ -86,8 +86,9 @@ donext [--once|--dry-run] [-v|--verbose] [--prompt TEXT|@FILE|-]
 donext status
 ```
 
-Run `donext --help` to see all accepted models, reasoning levels, approval
-policies, and sandbox modes, including their defaults and compatibility.
+Run `donext --help` to see the models and reasoning levels currently advertised
+by the authenticated Codex App Server, plus all accepted approval policies and
+sandbox modes. App Server must therefore be available for model-aware help.
 
 Examples:
 
@@ -178,12 +179,14 @@ Every `thread/start` explicitly receives safe defaults:
 
 Every managed session also explicitly uses `--model gpt-5.6-sol` and
 `--reasoning light` by default. `light` is sent to App Server as its protocol
-value `low`. Available model values are `gpt-5.6-sol`, `gpt-5.6-terra`,
-`gpt-5.6-luna`, `gpt-5.5`, and `gpt-5.2`. Available reasoning values are
-`light`, `medium`, `high`, `xhigh`, `max`, and `ultra`; `max` requires a GPT-5.6
-model, and `ultra` requires GPT-5.6 Sol or Terra. The selected model is fixed on
-the new persisted thread and repeated together with the reasoning level on
-every turn, including model-capacity retries.
+value `low`. `donext` reads every visible model and its supported reasoning
+efforts from the paginated App Server `model/list` method; it does not maintain
+a static model catalog or compatibility matrix. Help and dry-run use a short
+discovery App Server process. A real run queries the same App Server process
+that will start the goal and stops before thread creation if the selection is
+unavailable. The selected model is fixed on the new persisted thread and
+repeated together with the reasoning level on every turn, including
+model-capacity retries.
 
 Each goal uses a fresh `codex app-server --stdio` process started from `PATH`.
 Approval and user-input requests are rejected, the active turn is interrupted,
