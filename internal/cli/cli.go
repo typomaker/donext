@@ -45,7 +45,7 @@ const defaultInterGoalDelay = 3 * time.Second
 
 const (
 	defaultModel     = "gpt-5.6-sol"
-	defaultReasoning = "light"
+	defaultReasoning = "low"
 )
 
 var interGoalDelayAfter = time.After
@@ -519,7 +519,7 @@ func runGoal(ctx context.Context, client codex.Client, project projectSpec, stor
 		if retry && project.Verbose {
 			printMarkedMessage(stderr, '<', prompt)
 		}
-		turnID, err := client.StartTurn(ctx, threadID, prompt, codex.TurnOptions{Model: project.Model, Effort: reasoningEffort(project.Reasoning)})
+		turnID, err := client.StartTurn(ctx, threadID, prompt, codex.TurnOptions{Model: project.Model, Effort: project.Reasoning})
 		if err != nil {
 			_ = store.Write(state.State{Project: projectID, Status: "failed", ThreadID: threadID})
 			logLifecycle(store, stderr, projectID, "turn", "start_failed", map[string]string{"thread": threadID})
@@ -880,10 +880,10 @@ func usage(w io.Writer, catalog []codex.Model) {
 		if model.Name == defaultModel {
 			defaultLabel = " (default)"
 		}
-		fmt.Fprintf(w, "      %s%s: %s\n", model.Name, defaultLabel, strings.Join(displayReasoning(model.Reasoning), ", "))
+		fmt.Fprintf(w, "      %s%s: %s\n", model.Name, defaultLabel, strings.Join(displayReasoningWithDefault(model.Reasoning), ", "))
 	}
 	fmt.Fprintln(w, "  --reasoning LEVEL")
-	fmt.Fprintln(w, "      levels are listed per model above; light is the low App Server effort")
+	fmt.Fprintln(w, "      levels are listed per model above")
 	fmt.Fprintln(w, "  --inter-goal-delay DURATION")
 	fmt.Fprintln(w, "      delay between continuous-run App Servers (default 3s)")
 }
@@ -910,7 +910,7 @@ func validateModelSelection(catalog []codex.Model, model, reasoning string) erro
 		return fmt.Errorf("--model must be one of: %s", strings.Join(modelNames(catalog), ", "))
 	}
 	if !modelSupportsReasoning(selected, reasoning) {
-		return fmt.Errorf("--reasoning for --model %s must be one of: %s", model, strings.Join(displayReasoning(selected.Reasoning), ", "))
+		return fmt.Errorf("--reasoning for --model %s must be one of: %s", model, strings.Join(selected.Reasoning, ", "))
 	}
 	return nil
 }
@@ -924,30 +924,20 @@ func modelNames(catalog []codex.Model) []string {
 }
 
 func modelSupportsReasoning(model codex.Model, reasoning string) bool {
-	effort := reasoningEffort(reasoning)
 	for _, supported := range model.Reasoning {
-		if supported == effort {
+		if supported == reasoning {
 			return true
 		}
 	}
 	return false
 }
 
-func displayReasoning(reasoning []string) []string {
-	levels := make([]string, len(reasoning))
-	for i, effort := range reasoning {
-		if effort == "low" {
-			levels[i] = "light"
-		} else {
-			levels[i] = effort
+func displayReasoningWithDefault(reasoning []string) []string {
+	levels := append([]string(nil), reasoning...)
+	for i, level := range levels {
+		if level == defaultReasoning {
+			levels[i] += " (default)"
 		}
 	}
 	return levels
-}
-
-func reasoningEffort(reasoning string) string {
-	if reasoning == "light" {
-		return "low"
-	}
-	return reasoning
 }

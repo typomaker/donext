@@ -9,8 +9,10 @@ after its first release.
 
 ### Changed
 
-- Default managed sessions to GPT-5.6 Sol with Light reasoning. Add validated
+- Default managed sessions to GPT-5.6 Sol with Low reasoning. Add validated
   `--model` and `--reasoning` overrides and send them explicitly to App Server.
+  Keep Low as the default for every selected model instead of inheriting the
+  model catalog's default reasoning effort, and mark it per model in help.
   Populate help and selection validation dynamically from the authenticated,
   paginated App Server `model/list` catalog instead of hard-coded values.
 - Retry `serverOverloaded` and compatible model-capacity turn failures in the

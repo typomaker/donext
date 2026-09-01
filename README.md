@@ -178,9 +178,11 @@ Every `thread/start` explicitly receives safe defaults:
 - `--sandbox workspace-write` (also: `read-only`, `danger-full-access`).
 
 Every managed session also explicitly uses `--model gpt-5.6-sol` and
-`--reasoning light` by default. `light` is sent to App Server as its protocol
-value `low`. `donext` reads every visible model and its supported reasoning
-efforts from the paginated App Server `model/list` method; it does not maintain
+`--reasoning low` by default. This Low default applies to every selected model
+and deliberately
+overrides the model catalog's `defaultReasoningEffort`; only an explicit
+`--reasoning` changes it. `donext` reads every visible model and its supported
+reasoning efforts from the paginated App Server `model/list` method; it does not maintain
 a static model catalog or compatibility matrix. Help and dry-run use a short
 discovery App Server process. A real run queries the same App Server process
 that will start the goal and stops before thread creation if the selection is

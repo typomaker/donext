@@ -266,8 +266,8 @@ func TestHelpReturnsSuccess(t *testing.T) {
 		"usage: donext",
 		"--approval-policy POLICY\n      never (default), on-request, untrusted",
 		"--sandbox MODE\n      workspace-write (default), read-only, danger-full-access",
-		"--model MODEL\n      gpt-5.6-sol (default): light, medium, high, xhigh, max, ultra",
-		"gpt-5.5: light, medium, high, xhigh",
+		"--model MODEL\n      gpt-5.6-sol (default): low (default), medium, high, xhigh, max, ultra",
+		"gpt-5.5: low (default), medium, high, xhigh",
 		"--reasoning LEVEL\n      levels are listed per model above",
 	} {
 		if !strings.Contains(help, want) {
@@ -365,7 +365,7 @@ func TestLifecycleLogContainsMetadataButNotPrompt(t *testing.T) {
 func TestDryRunAfterProject(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run(runArgs(t, "--dry-run"), &stdout, &stderr)
-	if code != 0 || !strings.Contains(stdout.String(), "project: alpha") || !strings.Contains(stdout.String(), "command: codex app-server --stdio") || !strings.Contains(stdout.String(), "approval_policy: never\nsandbox: workspace-write\nmodel: gpt-5.6-sol\nreasoning: light\nonce: false\ninter_goal_delay: 3s") {
+	if code != 0 || !strings.Contains(stdout.String(), "project: alpha") || !strings.Contains(stdout.String(), "command: codex app-server --stdio") || !strings.Contains(stdout.String(), "approval_policy: never\nsandbox: workspace-write\nmodel: gpt-5.6-sol\nreasoning: low\nonce: false\ninter_goal_delay: 3s") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 }
@@ -383,6 +383,16 @@ func TestDryRunShowsExplicitModelAndReasoning(t *testing.T) {
 	code := Run(runArgs(t, "--dry-run", "--model", "gpt-5.6-terra", "--reasoning", "ultra"), &stdout, &stderr)
 	if code != 0 || !strings.Contains(stdout.String(), "model: gpt-5.6-terra\nreasoning: ultra") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+}
+
+func TestEveryModelDefaultsToLowReasoning(t *testing.T) {
+	for _, model := range testModelCatalog {
+		var stdout, stderr bytes.Buffer
+		code := Run(runArgs(t, "--dry-run", "--model", model.Name), &stdout, &stderr)
+		if code != 0 || !strings.Contains(stdout.String(), "model: "+model.Name+"\nreasoning: low\n") {
+			t.Fatalf("model=%s code=%d stdout=%q stderr=%q", model.Name, code, stdout.String(), stderr.String())
+		}
 	}
 }
 
@@ -580,7 +590,7 @@ func TestRunOnceCompleted(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := Run(append(runArgsFor(t, repository), "--once"), &stdout, &stderr)
-	if fake.threadOpts.Model != defaultModel || fake.turnOpts.Model != defaultModel || fake.turnOpts.Effort != "low" {
+	if fake.threadOpts.Model != defaultModel || fake.turnOpts.Model != defaultModel || fake.turnOpts.Effort != defaultReasoning {
 		t.Fatalf("thread options=%+v turn options=%+v", fake.threadOpts, fake.turnOpts)
 	}
 	if code != 0 || stdout.String() != "" {

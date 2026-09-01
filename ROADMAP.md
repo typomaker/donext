@@ -51,6 +51,16 @@ These are outside the MVP until explicitly moved into "Current steps":
 
 ## Step history
 
+### ORCH-052 — Default every model to Low reasoning
+
+- Completed: 2026-09-01.
+- Result: every selected model now defaults to the original App Server `low`
+  reasoning name instead of inheriting `defaultReasoningEffort`. Removed the
+  public `light` alias, marked `low (default)` for every model in dynamic help,
+  and added cross-model default coverage and documentation. Checks: focused CLI
+  tests; full tests; full race tests; vet; build; real model-list help; explicit
+  GPT-5.4 dry-run; and diff check.
+
 ### ORCH-051 — Discover models and reasoning from App Server
 
 - Completed: 2026-09-01.
