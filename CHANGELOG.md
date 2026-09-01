@@ -7,6 +7,8 @@ after its first release.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-01
+
 ### Changed
 
 - Default managed sessions to GPT-5.6 Sol with Low reasoning. Add validated
@@ -93,4 +95,5 @@ after its first release.
 - Automated tests using fake and in-memory App Server implementations.
 - GitHub Actions CI, MIT License, contribution guidelines, and security policy.
 
-[Unreleased]: https://github.com/typomaker/donext/commits/main
+[Unreleased]: https://github.com/typomaker/donext/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/typomaker/donext/compare/v0.1.0...v0.2.0

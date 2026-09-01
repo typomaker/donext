@@ -2,9 +2,10 @@
 
 ## Supported versions
 
-Before the first tagged release, security fixes apply only to the latest state
-of `main`. This section will be replaced with a supported-version table after
-versioned releases begin.
+| Version | Supported |
+| ------- | --------- |
+| 0.2.x   | Yes       |
+| < 0.2   | No        |
 
 ## Reporting a vulnerability
 
